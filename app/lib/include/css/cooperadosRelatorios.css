@@ -1,6 +1,28 @@
 .cooperados-relatorios-panel-body {
     padding: 0 !important;
-    background: transparent !important;
+    border: 0 !important;
+    background: #f6f7f8 !important;
+}
+
+.cooperados-relatorios-host-container {
+    width: calc(100% + 20px) !important;
+    max-width: none !important;
+    margin: -4px -10px 0 !important;
+    padding: 0 !important;
+}
+
+.cooperados-relatorios-host-panel {
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #f6f7f8 !important;
+    box-shadow: none !important;
+}
+
+.cooperados-relatorios-host-panel > .panel-body {
+    padding: 0 !important;
+    border: 0 !important;
+    background: #f6f7f8 !important;
 }
 
 .cooperados-relatorios-page {
@@ -15,19 +37,23 @@
     --cooperados-relatorios-orange-soft: #fff2df;
     --cooperados-relatorios-red: #d55353;
     --cooperados-relatorios-red-soft: #feeeee;
+    --cooperados-relatorios-neutral: #75817c;
+    --cooperados-relatorios-neutral-soft: #f1f3f2;
+    --cooperados-relatorios-neutral-faint: #c4ccc8;
     --cooperados-relatorios-text: #172333;
     --cooperados-relatorios-muted: #697789;
     --cooperados-relatorios-border: #dfe6ec;
     --cooperados-relatorios-border-soft: #e9eef2;
     --cooperados-relatorios-card: #ffffff;
     --cooperados-relatorios-card-soft: #f8fafb;
-    --cooperados-relatorios-page-bg: #f4f7f8;
+    --cooperados-relatorios-page-bg: #f6f7f8;
     --cooperados-relatorios-shadow: 0 10px 28px rgba(25, 49, 69, .08);
     --cooperados-relatorios-shadow-soft: 0 3px 14px rgba(25, 49, 69, .06);
     position: relative;
     width: 100%;
+    max-width: none;
     min-height: 100%;
-    padding: 18px;
+    padding: 10px 12px 18px;
     color: var(--cooperados-relatorios-text);
     background: var(--cooperados-relatorios-page-bg);
     font-family: inherit;
@@ -50,8 +76,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    min-height: 132px;
-    padding: 24px 26px;
+    min-height: 120px;
+    padding: 20px 24px;
     border: 1px solid rgba(0, 143, 87, .17);
     border-radius: 18px;
     background:
@@ -180,7 +206,7 @@
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 14px;
-    margin: 16px 0;
+    margin: 14px 0;
 }
 
 .cooperados-relatorios-kpi {
@@ -188,8 +214,8 @@
     --cooperados-relatorios-kpi-soft: var(--cooperados-relatorios-blue-soft);
     position: relative;
     min-width: 0;
-    min-height: 145px;
-    padding: 19px 20px;
+    min-height: 138px;
+    padding: 18px 20px;
     overflow: hidden;
     border: 1px solid var(--cooperados-relatorios-border-soft);
     border-radius: 15px;
@@ -273,13 +299,13 @@
 }
 
 .cooperados-relatorios-panel {
-    margin-bottom: 22px;
+    margin-bottom: 16px;
     overflow: hidden;
-    border-radius: 16px;
+    border-radius: 14px;
 }
 
 .cooperados-relatorios-section-heading {
-    padding: 20px 21px 0;
+    padding: 17px 18px 0;
 }
 
 .cooperados-relatorios-section-heading h2 {
@@ -305,13 +331,13 @@
 }
 
 .cooperados-relatorios-filters form {
-    padding: 18px 21px 20px;
+    padding: 15px 18px 17px;
 }
 
 .cooperados-relatorios-filter-grid {
     display: grid;
     grid-template-columns: .8fr 1.7fr .85fr 1.15fr 1.15fr;
-    gap: 15px;
+    gap: 12px;
     align-items: end;
 }
 
@@ -406,22 +432,26 @@
 
 .cooperados-relatorios-analysis,
 .cooperados-relatorios-reports {
-    margin-bottom: 23px;
+    margin-bottom: 18px;
 }
 
 .cooperados-relatorios-analysis > .cooperados-relatorios-section-heading,
 .cooperados-relatorios-reports > .cooperados-relatorios-section-heading {
-    padding: 0 2px 13px;
+    padding: 0 2px 10px;
 }
 
 .cooperados-relatorios-chart-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 15px;
+    align-items: stretch;
 }
 
 .cooperados-relatorios-chart-card {
+    display: flex;
+    flex-direction: column;
     min-width: 0;
+    min-height: 390px;
     overflow: hidden;
     border-radius: 15px;
 }
@@ -431,6 +461,8 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 15px;
+    flex: 0 0 auto;
+    min-height: 68px;
     padding: 18px 19px 8px;
 }
 
@@ -476,12 +508,13 @@
 }
 
 .cooperados-relatorios-chart {
-    min-height: 305px;
-    padding: 2px 8px 10px;
+    flex: 1 1 auto;
+    min-height: 326px;
+    padding: 4px 12px 14px;
 }
 
 .cooperados-relatorios-chart.is-horizontal {
-    min-height: 340px;
+    min-height: 350px;
 }
 
 .cooperados-relatorios-chart-empty {
@@ -525,6 +558,11 @@
 
 .cooperados-relatorios-page .c3-legend-item text {
     fill: var(--cooperados-relatorios-text);
+    font-size: 11px;
+}
+
+.cooperados-relatorios-page .c3 svg {
+    max-width: 100%;
 }
 
 .cooperados-relatorios-page .c3-tooltip {
@@ -553,10 +591,10 @@
     align-items: flex-start;
     gap: 17px;
     min-width: 0;
-    min-height: 190px;
-    padding: 21px;
+    min-height: 170px;
+    padding: 19px;
     overflow: hidden;
-    border-radius: 15px;
+    border-radius: 14px;
 }
 
 .cooperados-relatorios-report-card::after {
@@ -650,7 +688,7 @@
     justify-content: center;
     gap: 11px;
     color: var(--cooperados-relatorios-text);
-    background: rgba(244, 247, 248, .68);
+    background: rgba(255, 255, 255, .76);
     font-size: 13px;
     font-weight: 700;
     opacity: 0;
@@ -723,6 +761,9 @@ body.dark .cooperados-relatorios-page,
     --cooperados-relatorios-orange-soft: #49321d;
     --cooperados-relatorios-red: #ef8585;
     --cooperados-relatorios-red-soft: #482727;
+    --cooperados-relatorios-neutral: #aab7b1;
+    --cooperados-relatorios-neutral-soft: #26342e;
+    --cooperados-relatorios-neutral-faint: #52615a;
     --cooperados-relatorios-text: #edf4f7;
     --cooperados-relatorios-muted: #aab7c4;
     --cooperados-relatorios-border: #344454;
@@ -732,6 +773,18 @@ body.dark .cooperados-relatorios-page,
     --cooperados-relatorios-page-bg: #101922;
     --cooperados-relatorios-shadow: 0 10px 28px rgba(0, 0, 0, .25);
     --cooperados-relatorios-shadow-soft: 0 3px 14px rgba(0, 0, 0, .22);
+}
+
+body.dark .cooperados-relatorios-panel-body,
+body.dark .cooperados-relatorios-host-panel,
+body.dark .cooperados-relatorios-host-panel > .panel-body,
+.dark .cooperados-relatorios-panel-body,
+.dark .cooperados-relatorios-host-panel,
+.dark .cooperados-relatorios-host-panel > .panel-body,
+[data-theme="dark"] .cooperados-relatorios-panel-body,
+[data-theme="dark"] .cooperados-relatorios-host-panel,
+[data-theme="dark"] .cooperados-relatorios-host-panel > .panel-body {
+    background: #101922 !important;
 }
 
 body.dark .cooperados-relatorios-hero,

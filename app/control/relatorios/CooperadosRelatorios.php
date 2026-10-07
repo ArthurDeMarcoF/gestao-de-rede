@@ -29,16 +29,14 @@ class CooperadosRelatorios extends TPage
             TTransaction::close();
 
             $panel = new TPanelGroup();
+            $panel->class .= ' cooperados-relatorios-host-panel';
             $panel->style = 'border: none; box-shadow: none; background: transparent;';
             $panel->getBody()->class .= ' cooperados-relatorios-panel-body';
             $panel->add($pagina);
 
             $container = new TVBox();
             $container->style = 'width: 100%;';
-
-            if (empty($param['target_container'])) {
-                $container->add(TBreadCrumb::create(['Relatórios', 'Cooperados']));
-            }
+            $container->class = 'cooperados-relatorios-host-container';
 
             $container->add($panel);
             parent::add($container);
@@ -86,30 +84,38 @@ class CooperadosRelatorios extends TPage
         [$where, $parametros] = $this->montarFiltrosSql($filtros);
         $periodoNovos = $this->montarPeriodoNovos($filtros);
         $parametrosKpi = array_merge($parametros, $periodoNovos['parametros']);
+        $situacaoSql = $this->expressaoSituacaoSql();
 
         $resumo = $this->consultarUmaLinha(
             "SELECT
                 COUNT(*) AS total,
-                COALESCE(SUM(CASE WHEN c.ativo = 'Sim' THEN 1 ELSE 0 END), 0) AS ativos,
-                COALESCE(SUM(CASE WHEN c.ativo = 'Não' THEN 1 ELSE 0 END), 0) AS inativos,
+                COALESCE(SUM(CASE WHEN {$situacaoSql} = 'ATIVO' THEN 1 ELSE 0 END), 0) AS ativos,
+                COALESCE(SUM(CASE WHEN {$situacaoSql} = 'INATIVO' THEN 1 ELSE 0 END), 0) AS inativos,
+                COALESCE(SUM(CASE WHEN {$situacaoSql} = 'NAO_INFORMADO' THEN 1 ELSE 0 END), 0) AS nao_informados,
                 COALESCE(SUM(CASE WHEN {$periodoNovos['condicao']} THEN 1 ELSE 0 END), 0) AS novos
              FROM cooperados c
              WHERE {$where}",
             $parametrosKpi
         );
 
+        // A expressão precisa ser repetida no GROUP BY: o alias "nome" conflita
+        // com cooperados.nome e faria o MySQL criar um grupo para cada cooperado.
         $situacao = $this->consultar(
             "SELECT
-                CASE
-                    WHEN c.ativo = 'Sim' THEN 'Ativos'
-                    WHEN c.ativo = 'Não' THEN 'Inativos'
+                CASE {$situacaoSql}
+                    WHEN 'ATIVO' THEN 'Ativos'
+                    WHEN 'INATIVO' THEN 'Inativos'
                     ELSE 'Não informado'
                 END AS nome,
                 COUNT(*) AS total
              FROM cooperados c
              WHERE {$where}
-             GROUP BY nome
-             ORDER BY total DESC, nome",
+             GROUP BY {$situacaoSql}
+             ORDER BY CASE {$situacaoSql}
+                        WHEN 'ATIVO' THEN 1
+                        WHEN 'INATIVO' THEN 2
+                        ELSE 3
+                      END",
             $parametros
         );
 
@@ -129,7 +135,28 @@ class CooperadosRelatorios extends TPage
 
         foreach ($sexoBruto as $linha) {
             $codigo = (string) $linha['codigo'];
-            $nome = $codigo === '__NAO_INFORMADO__' ? 'Não informado' : ($mapaSexos[$codigo] ?? $codigo);
+            $codigoNormalizado = mb_strtoupper(trim($codigo), 'UTF-8');
+
+            if ($codigo === '__NAO_INFORMADO__') {
+                $nome = 'Não informado';
+            } else {
+                $fallback = $codigo;
+
+                if (in_array($codigoNormalizado, ['M', 'MASCULINO'], true)) {
+                    $fallback = 'Masculino';
+                } elseif (in_array($codigoNormalizado, ['F', 'FEMININO'], true)) {
+                    $fallback = 'Feminino';
+                }
+
+                $nome = $this->normalizarRotuloGrafico($mapaSexos[$codigo] ?? $fallback, $fallback);
+
+                if (in_array(mb_strtoupper($nome, 'UTF-8'), ['M', 'MASCULINO'], true)) {
+                    $nome = 'Masculino';
+                } elseif (in_array(mb_strtoupper($nome, 'UTF-8'), ['F', 'FEMININO'], true)) {
+                    $nome = 'Feminino';
+                }
+            }
+
             $sexoAcumulado[$nome] = ($sexoAcumulado[$nome] ?? 0) + (int) $linha['total'];
         }
 
@@ -191,6 +218,7 @@ class CooperadosRelatorios extends TPage
                 'total' => (int) ($resumo['total'] ?? 0),
                 'ativos' => (int) ($resumo['ativos'] ?? 0),
                 'inativos' => (int) ($resumo['inativos'] ?? 0),
+                'nao_informados' => (int) ($resumo['nao_informados'] ?? 0),
                 'novos' => (int) ($resumo['novos'] ?? 0),
                 'periodo_novos' => $periodoNovos['rotulo'],
             ],
@@ -210,7 +238,7 @@ class CooperadosRelatorios extends TPage
         $parametros = [];
 
         if ($filtros['situacao'] !== '') {
-            $condicoes[] = 'c.ativo = :situacao';
+            $condicoes[] = $this->expressaoSituacaoSql() . ' = :situacao';
             $parametros['situacao'] = $filtros['situacao'];
         }
 
@@ -250,6 +278,22 @@ class CooperadosRelatorios extends TPage
         }
 
         return [implode("\n AND ", $condicoes), $parametros];
+    }
+
+    /**
+     * Normaliza cooperados.ativo para que KPIs, filtros e gráficos usem a mesma regra.
+     * O schema persiste CHAR(1) e o padrão do sistema é S/N; as demais formas são
+     * toleradas somente para absorver possíveis dados legados.
+     */
+    private function expressaoSituacaoSql(): string
+    {
+        $valor = "UPPER(TRIM(COALESCE(c.ativo, '')))";
+
+        return "CASE
+                    WHEN {$valor} IN ('S', 'SIM', '1') THEN 'ATIVO'
+                    WHEN {$valor} IN ('N', 'NAO', 'NÃO', '0') THEN 'INATIVO'
+                    ELSE 'NAO_INFORMADO'
+                END";
     }
 
     private function montarPeriodoNovos(array $filtros): array
@@ -326,7 +370,7 @@ class CooperadosRelatorios extends TPage
             $valor = trim((string) ($linha['valor'] ?? ''));
 
             if ($valor !== '') {
-                $mapa[$valor] = trim((string) ($linha['mascara'] ?? '')) ?: $valor;
+                $mapa[$valor] = $this->normalizarRotuloGrafico($linha['mascara'] ?? '', $valor);
             }
         }
 
@@ -368,7 +412,7 @@ class CooperadosRelatorios extends TPage
     {
         $situacao = $this->valorEscalar($entrada, 'situacao');
 
-        if (!in_array($situacao, ['', 'Sim', 'Não'], true)) {
+        if (!in_array($situacao, ['', 'ATIVO', 'INATIVO'], true)) {
             throw new InvalidArgumentException('A situação informada é inválida.');
         }
 
@@ -433,15 +477,36 @@ class CooperadosRelatorios extends TPage
 
     private function normalizarAgrupamento(array $linhas): array
     {
-        return array_map(
-            static function (array $linha): array {
-                return [
-                    'nome' => (string) ($linha['nome'] ?? 'Não informado'),
-                    'total' => (int) ($linha['total'] ?? 0),
-                ];
-            },
-            $linhas
-        );
+        $totais = [];
+
+        foreach ($linhas as $linha) {
+            $nome = $this->normalizarRotuloGrafico($linha['nome'] ?? '', 'Não informado');
+            $total = (int) ($linha['total'] ?? 0);
+
+            if ($total <= 0) {
+                continue;
+            }
+
+            $totais[$nome] = ($totais[$nome] ?? 0) + $total;
+        }
+
+        $resultado = [];
+
+        foreach ($totais as $nome => $total) {
+            $resultado[] = ['nome' => $nome, 'total' => $total];
+        }
+
+        return $resultado;
+    }
+
+    private function normalizarRotuloGrafico($valor, string $fallback): string
+    {
+        $texto = html_entity_decode((string) $valor, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $texto = strip_tags($texto);
+        $texto = preg_replace('/\s+/u', ' ', $texto) ?? '';
+        $texto = trim($texto);
+
+        return $texto !== '' ? $texto : $fallback;
     }
 
     private function montarPagina(array $dados, array $opcoes): string
@@ -535,8 +600,8 @@ class CooperadosRelatorios extends TPage
                             <label for="crSituacao">Situação</label>
                             <select id="crSituacao" name="situacao">
                                 <option value="">Todos</option>
-                                <option value="Sim">Ativo</option>
-                                <option value="Não">Inativo</option>
+                                <option value="ATIVO">Ativo</option>
+                                <option value="INATIVO">Inativo</option>
                             </select>
                         </div>
 

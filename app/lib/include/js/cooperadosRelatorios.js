@@ -17,6 +17,80 @@
         return elemento.innerHTML;
     }
 
+    function textoLimpo(valor, fallback) {
+        var semTags = String(valor === null || valor === undefined ? '' : valor)
+            .replace(/<[^>]*>/g, ' ');
+        var decodificador = document.createElement('textarea');
+        decodificador.innerHTML = semTags;
+
+        var texto = String(decodificador.value || decodificador.textContent || '')
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return texto || fallback || '';
+    }
+
+    function nomeSituacao(nome) {
+        var chave = textoLimpo(nome, '').toLocaleUpperCase('pt-BR');
+
+        if (['ATIVO', 'ATIVOS', 'S', 'SIM', '1'].indexOf(chave) !== -1) {
+            return 'Ativos';
+        }
+
+        if (['INATIVO', 'INATIVOS', 'N', 'NAO', 'NÃO', '0'].indexOf(chave) !== -1) {
+            return 'Inativos';
+        }
+
+        return 'Não informado';
+    }
+
+    function nomeSexo(nome) {
+        var texto = textoLimpo(nome, 'Não informado');
+        var chave = texto.toLocaleUpperCase('pt-BR');
+
+        if (chave === 'M' || chave === 'MASCULINO') {
+            return 'Masculino';
+        }
+
+        if (chave === 'F' || chave === 'FEMININO') {
+            return 'Feminino';
+        }
+
+        return texto;
+    }
+
+    function consolidarEntradas(entradas, normalizarNome, limite) {
+        var totais = Object.create(null);
+        var ordem = [];
+
+        (Array.isArray(entradas) ? entradas : []).forEach(function (entrada) {
+            var nome = textoLimpo(entrada && entrada.nome, 'Não informado');
+            var total = Number(entrada && entrada.total);
+
+            if (typeof normalizarNome === 'function') {
+                nome = normalizarNome(nome);
+            }
+
+            if (!Number.isFinite(total) || total <= 0) {
+                return;
+            }
+
+            if (!Object.prototype.hasOwnProperty.call(totais, nome)) {
+                totais[nome] = 0;
+                ordem.push(nome);
+            }
+
+            totais[nome] += total;
+        });
+
+        var consolidadas = ordem.map(function (nome) {
+            return { nome: nome, total: totais[nome] };
+        });
+
+        return limite ? consolidadas.slice(0, limite) : consolidadas;
+    }
+
     function carregarScript(src, nomeGlobal) {
         return new Promise(function (resolve, reject) {
             if (window[nomeGlobal]) {
@@ -176,7 +250,7 @@
             return estilo.getPropertyValue('--cooperados-relatorios-' + nome).trim() || reserva;
         }
 
-        function desenharDonut(container, entradas, titulo, paleta) {
+        function desenharDonut(container, entradas, titulo, paleta, coresPorNome) {
             container.replaceChildren();
 
             if (!entradas.length) {
@@ -190,7 +264,7 @@
             var colunas = entradas.map(function (entrada, indice) {
                 var id = 'item_' + indice;
                 nomes[id] = entrada.nome;
-                cores[id] = paleta[indice % paleta.length];
+                cores[id] = (coresPorNome && coresPorNome[entrada.nome]) || paleta[indice % paleta.length];
                 total += Number(entrada.total || 0);
                 return [id, Number(entrada.total || 0)];
             });
@@ -348,27 +422,38 @@
                 var purple = cor(estilo, 'purple', '#7956d8');
                 var orange = cor(estilo, 'orange', '#dd7a19');
                 var red = cor(estilo, 'red', '#d55353');
+                var neutral = cor(estilo, 'neutral', '#75817c');
+                var neutralFaint = cor(estilo, 'neutral-faint', '#c4ccc8');
+                var situacoes = consolidarEntradas(graficos.situacao, nomeSituacao, 3);
+                var sexos = consolidarEntradas(graficos.sexo, nomeSexo);
+                var especialidades = consolidarEntradas(graficos.especialidades, null, 8);
+                var cidades = consolidarEntradas(graficos.cidades, null, 8);
 
                 desenharDonut(
                     raiz.querySelector('#crChartSituacao'),
-                    graficos.situacao || [],
+                    situacoes,
                     'cooperados',
-                    [primary, red, orange]
+                    [primary, neutral, neutralFaint],
+                    {
+                        'Ativos': primary,
+                        'Inativos': neutral,
+                        'Não informado': neutralFaint
+                    }
                 );
                 desenharDonut(
                     raiz.querySelector('#crChartSexo'),
-                    graficos.sexo || [],
+                    sexos,
                     'cooperados',
                     [purple, blue, primary, orange, red]
                 );
                 desenharBarras(
                     raiz.querySelector('#crChartEspecialidades'),
-                    graficos.especialidades || [],
+                    especialidades,
                     blue
                 );
                 desenharBarras(
                     raiz.querySelector('#crChartCidades'),
-                    graficos.cidades || [],
+                    cidades,
                     primary
                 );
             }).catch(function (erro) {
