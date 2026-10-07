@@ -1,0 +1,236 @@
+/* ===============================
+   TÍTULOS DOS PAINÉIS
+================================ */
+.panel-title.cooperados {
+    font-size: 18px;
+    font-weight: 600;
+    color: #27ae60;
+}
+
+.panel-title.credenciados {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2980b9;
+}
+
+/* ===============================
+   DASHBOARD COOPERADOS
+================================ */
+.cooperado-inicial-dashboard {
+    padding: 16px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* ===============================
+   CARDS
+================================ */
+.cooperado-inicial-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.cooperado-inicial-card {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    border-radius: 12px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(0,0,0,.12);
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.cooperado-inicial-card::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -30%;
+    width: 140%;
+    height: 140%;
+    background: rgba(255,255,255,.08);
+    transform: rotate(25deg);
+}
+
+.cooperado-inicial-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 26px rgba(0,0,0,.18);
+}
+
+.cooperado-inicial-icon {
+    margin-right: 16px;
+    display: flex;
+    align-items: center;
+}
+
+/* ÍCONE REAL */
+.cooperado-inicial-icon i {
+    font-size: 32px;
+    opacity: .95;
+    transition:
+        transform 0.35s ease,
+        filter 0.35s ease;
+}
+
+@keyframes cooperado-inicial-icon-float {
+    0%   { transform: scale(1.15) }
+    25%  { transform: scale(1.20) }
+    50%  { transform: scale(1.30) }
+    75%  { transform: scale(1.20) }
+    100% { transform: scale(1.15) }
+}
+
+.cooperado-inicial-card:hover .cooperado-inicial-icon i {
+    animation: cooperado-inicial-icon-float 0.9s ease-in-out;
+}
+
+.cooperado-inicial-card:hover::after {
+    background: rgba(255,255,255,0.14);
+}
+
+.cooperado-inicial-label {
+    font-size: 17px;   /* antes 14px */
+    font-weight: 600;  /* dá mais presença */
+    opacity: .95;
+}
+
+.cooperado-inicial-value {
+    font-size: 36px;   /* antes 30px */
+    font-weight: 800;
+    letter-spacing: .5px;
+}
+
+/* Cores */
+.cooperado-inicial-card-green {
+    background: linear-gradient(135deg, #1abc9c, #2ecc71);
+}
+
+.cooperado-inicial-card-orange {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+}
+
+.cooperado-inicial-card-blue {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+/* ===============================
+   LISTAS / TABELAS
+================================ */
+.cooperado-inicial-lists {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+}
+
+.cooperado-inicial-box {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
+}
+
+.cooperado-inicial-box h3 {
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.cooperado-inicial-box table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cooperado-inicial-box thead th {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #6b7280; /* cinza moderno */
+    padding: 10px 8px;
+}
+
+.cooperado-inicial-box th {
+    text-align: left;
+    font-size: 13px;
+    color: #555;
+    padding: 8px;
+    border-bottom: 2px solid #eee;
+}
+
+.cooperado-inicial-box td {
+    padding: 8px;
+    font-size: 14px;
+    border-bottom: 1px solid #eee;
+}
+
+.cooperado-inicial-box tbody tr {
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.cooperado-inicial-box tbody tr:hover {
+    background: #f0fdf9;
+    transform: scale(1.01);
+}
+
+.cooperado-inicial-box tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+.cooperado-inicial-box tr:hover {
+    background: #eef7f4;
+    transition: background .2s ease;
+}
+
+/* ===============================
+   BADGE TEMPO (ISOLADO)
+================================ */
+.cooperado-inicial-tempo {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+    text-align: center;
+    min-width: 90px;
+}
+
+/* Aniversário */
+.tempo-hoje {
+    background-color: #16a34a; /* verde */
+}
+
+.tempo-amanha {
+    background-color: #f59e0b; /* laranja */
+}
+
+.tempo-em {
+    background-color: #2563eb; /* azul */
+}
+
+/* Desfiliação */
+.tempo-urgente {
+    background-color: #dc2626; /* vermelho */
+}
+
+.tempo-normal {
+    background-color: #6b7280; /* cinza */
+}
+
+/* Título das listas - Cooperados */
+.cooperado-inicial-box h3 {
+    margin-bottom: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cooperado-inicial-box h3 i {
+    color: #16a34a; /* verde cooperados */
+}

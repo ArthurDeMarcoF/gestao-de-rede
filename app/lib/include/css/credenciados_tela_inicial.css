@@ -1,0 +1,194 @@
+/* ======================================================
+   DASHBOARD - CREDENCIADOS
+   Isolado / Sem conflito com sistema
+====================================================== */
+
+.credenciado-inicial-dashboard {
+    padding: 16px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* ======================================================
+   CARDS
+====================================================== */
+
+.credenciado-inicial-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.credenciado-inicial-card {
+    display: flex;
+    align-items: center;
+    padding: 22px;
+    border-radius: 14px;
+    color: #ffffff;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.credenciado-inicial-card::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -30%;
+    width: 140%;
+    height: 140%;
+    background: rgba(255,255,255,0.10);
+    transform: rotate(25deg);
+}
+
+.credenciado-inicial-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.18);
+}
+
+/* Ícone do card */
+.credenciado-inicial-icon {
+    font-size: 40px;
+    margin-right: 18px;
+    opacity: 0.95;
+    transition: transform .35s ease, filter .35s ease;
+}
+
+.credenciado-inicial-card:hover .credenciado-inicial-icon {
+    transform: scale(1.25) rotate(-4deg);
+    filter: drop-shadow(0 8px 14px rgba(0,0,0,0.35));
+}
+
+/* Texto do card */
+.credenciado-inicial-label {
+    font-size: 16px;
+    font-weight: 600;
+    opacity: 0.95;
+}
+
+.credenciado-inicial-value {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+
+/* Cores dos cards */
+.credenciado-inicial-card-green {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+}
+
+.credenciado-inicial-card-orange {
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+}
+
+.credenciado-inicial-card-blue {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+}
+
+/* ======================================================
+   LISTAS / TABELAS
+====================================================== */
+
+.credenciado-inicial-lists {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.credenciado-inicial-box {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+/* Título da box */
+.credenciado-inicial-box h3 {
+    margin-bottom: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.credenciado-inicial-box h3 i {
+    color: #2563eb;
+}
+
+/* Tabela */
+.credenciado-inicial-box table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.credenciado-inicial-box thead th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    padding: 10px 8px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.credenciado-inicial-box tbody td {
+    padding: 10px 8px;
+    font-size: 14px;
+    color: #374151;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.credenciado-inicial-box tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+.credenciado-inicial-box tbody tr:hover {
+    background: #eef2ff;
+    transition: background .2s ease;
+}
+
+/* Centralizar coluna Tempo */
+.credenciado-inicial-box th:last-child,
+.credenciado-inicial-box td:last-child {
+    text-align: center;
+    width: 110px;
+}
+
+/* ======================================================
+   BADGES - TEMPO (ISOLADOS)
+====================================================== */
+
+.credenciado-inicial-tempo {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+    min-width: 90px;
+}
+
+/* Estados */
+.credenciado-inicial-tempo.tempo-hoje {
+    background-color: #16a34a;
+}
+
+.credenciado-inicial-tempo.tempo-amanha {
+    background-color: #f59e0b;
+}
+
+.credenciado-inicial-tempo.tempo-em {
+    background-color: #2563eb;
+}
+
+.credenciado-inicial-tempo.tempo-urgente {
+    background-color: #dc2626;
+}
+
+.credenciado-inicial-tempo.tempo-normal {
+    background-color: #6b7280;
+}

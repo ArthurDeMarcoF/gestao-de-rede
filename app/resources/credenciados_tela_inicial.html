@@ -1,0 +1,99 @@
+<!--[main]-->
+<link rel="stylesheet" href="app/lib/include/css/credenciados_tela_inicial.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<div class="credenciado-inicial-dashboard">
+
+    <!-- CARDS -->
+    <div class="credenciado-inicial-cards">
+
+        <!-- Card 1 - Credenciados Ativos -->
+        <div class="credenciado-inicial-card credenciado-inicial-card-green">
+            <div class="credenciado-inicial-icon">
+                <i class="fas fa-hospital-user"></i>
+            </div>
+            <div class="credenciado-inicial-info">
+                <span class="credenciado-inicial-label">Credenciados ativos</span>
+                <span class="credenciado-inicial-value">
+                    {$total_credenciados}
+                </span>
+            </div>
+        </div>
+
+        <!-- Card 2 - Documentos vencidos -->
+        <div class="credenciado-inicial-card credenciado-inicial-card-orange">
+            <div class="credenciado-inicial-icon">
+                <i class="fas fa-file-circle-xmark"></i>
+            </div>
+            <div class="credenciado-inicial-info">
+                <span class="credenciado-inicial-label">Documentos vencidos</span>
+                <span class="credenciado-inicial-value">
+                    {$docs_vencidos_cred}
+                </span>
+            </div>
+        </div>
+
+        <!-- Card 3 - Cooperados vinculados -->
+        <div class="credenciado-inicial-card credenciado-inicial-card-blue">
+            <div class="credenciado-inicial-icon">
+                <i class="fas fa-user-md"></i>
+            </div>
+            <div class="credenciado-inicial-info">
+                <span class="credenciado-inicial-label">Cooperados vinculados</span>
+                <span class="credenciado-inicial-value">
+                    {$cooperados_vinculados}
+                </span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- LISTAS -->
+    <div class="credenciado-inicial-lists">
+
+        <!-- Aniversariantes (Data de Credenciamento) -->
+        <div class="credenciado-inicial-box">
+            <h3>
+                <i class="fas fa-calendar-check"></i>
+                Credenciamento (Próx. 7 dias)
+            </h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Nome</th>
+                        <th>Tempo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {$lista_aniversariantes|raw}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Descredenciamento -->
+        <div class="credenciado-inicial-box">
+            <h3>
+                <i class="fas fa-user-slash"></i>
+                Descredenciamento (60 dias)
+            </h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Nome</th>
+                        <th>Tempo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {$lista_descredenciamento|raw}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</div>
+<!--[/main]-->

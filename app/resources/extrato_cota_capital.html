@@ -1,0 +1,172 @@
+<!--[main]-->
+<style>
+    .titulo-cota-capital th {
+        background: #000;
+        color: #fff;
+        font-weight: bold;
+        text-align: center;
+        font-size: 12px;
+        letter-spacing: 0.3px;
+    }
+
+    .tabela-cota-capital {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        table-layout: fixed;
+    }
+
+    .tabela-cota-capital th,
+    .tabela-cota-capital td {
+        border: 1px solid #000;
+        padding: 6px;
+        font-size: 12px;
+    }
+
+    .linha-cinza {
+        background: #cfcfcf;
+    }
+
+    .linha-branca {
+        background: #f5f5f5;
+    }
+
+    .data {
+        text-align: center;
+        font-size: 12px;
+    }
+
+    .valor {
+        text-align: right;
+        font-size: 12px;
+    }
+
+    .total-geral-cota-capital td {
+        background: #000;
+        color: #fff;
+        font-weight: bold;
+        border: 1px solid #000;
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    .total-label-cota-capital {
+        text-align: center;
+    }
+
+    .total-valor-cota-capital {
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .header-cooperado {
+        text-align: left;
+        padding-left: 5px;
+    }
+
+    .imagem-cabecalho-cooperado {
+        width: 400px;
+        height: auto;
+        display: block;
+    }
+
+    .data-extenso-header {
+        text-align: right;
+        font-size: 14px;
+        margin-top: 4px;
+    }
+
+    .ac-cooperado,
+    .crm-cooperado {
+        font-size: 14px;
+        margin-left: 5px;
+    }
+
+    .ac-cooperado {
+        margin-top: 50px;
+    }
+
+    .crm-cooperado {
+        margin-top: 2px;
+    }
+
+    .cnpj-cooperado {
+        margin-top: 15px;
+        font-size: 14px;
+    }
+
+    .ac-cooperado-label,
+    .crm-cooperado-label {
+        font-weight: bold;
+    }
+
+    .mensagem-demostrativo {
+        margin-top: 15px;
+        font-size: 14px;
+        font-weight: bold;
+        text-align: justify;
+    }
+
+    .mensagem-contato {
+        margin-top: 15px;
+        font-size: 14px;
+        text-align: justify;
+    }
+</style>
+
+<div class="ac-cooperado">
+    <span class="ac-cooperado-label">A/C Cooperado:</span> {$NOME_COOPERADO}
+</div>
+
+<div class="crm-cooperado">
+    <span class="crm-cooperado-label">CRM:</span> {$CRM}
+</div>
+
+<p class="cnpj-cooperado">Informamos abaixo sua posição de Cota-Capital na Unimed Meio Oeste - SC CNPJ nº 01.356.020/0001-62 atualizada até a data de {$DATA_ATUALIZACAO}.</p>
+
+<table class="tabela-cota-capital">
+    <thead>
+        <tr class="titulo-cota-capital">
+            <th>COTA CAPITAL</th>
+            <th>DATA ATUALIZAÇÃO</th>
+            <th>VALOR</th>
+        </tr>
+    </thead>
+    <tbody>
+        {$LINHAS_CONTA}
+    </tbody>
+</table>
+
+<table class="tabela-cota-capital">
+    <thead>
+        <tr class="titulo-cota-capital">
+            <th>SUBCONTA</th>
+            <th>DATA ATUALIZAÇÃO</th>
+            <th>VALOR</th>
+        </tr>
+    </thead>
+    <tbody>
+        {$LINHAS_SUBCONTA}
+    </tbody>
+</table>
+
+<table class="tabela-cota-capital">
+    <tr class="total-geral-cota-capital">
+        <td colspan="2" class="total-label-cota-capital">
+            SALDO TOTAL EM {$DATA_ATUALIZACAO}
+        </td>
+        <td class="total-valor-cota-capital">
+            {$SALDO_TOTAL}
+        </td>
+    </tr>
+</table>
+
+<div class="mensagem-demostrativo">
+    Extrato para simples conferência, os valores de IRRF e INSS retidos já foram informados no Demonstrativo de Rendimentos.
+</div>
+
+<div class="mensagem-contato">
+    Para maiores informações, favor entrar em contato com nosso setor Controladoria através do telefone/WhatsApp (49) 3551-9177.
+</div>
+
+<!--[/main]-->

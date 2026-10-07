@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu>
+  <menuitem label="Cadastros">
+    <icon>fas:user-plus fa-fw </icon>
+    <menu>
+      <menuitem label="Dashboard">
+        <icon>fas:chart-pie fa-fw </icon>
+        <action>TelaInicial#method=onShow</action>
+      </menuitem>
+      <menuitem label="Catálogo">
+        <icon>fas:address-book fa-fw </icon>
+        <action>CatalogoList#method=onShow</action>
+      </menuitem>
+      <menuitem label="Cooperados">
+        <icon>fas:users fa-fw </icon>
+        <menu>
+          <menuitem label="Cooperados">
+            <icon>far:circle fa-fw </icon>
+            <action>CooperadosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Contatos dos cooperados">
+            <icon>far:circle fa-fw </icon>
+            <action>CooperadosContatosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Especialidades dos cooperados ">
+            <icon>far:circle fa-fw </icon>
+            <action>CooperadosEspecialidadesList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Documentações dos cooperados">
+            <icon>far:circle fa-fw </icon>
+            <action>CooperadosDocumentacoesList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Tipos de benefícios">
+            <icon>far:circle fa-fw </icon>
+            <action>TipoBeneficiosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Endereços do cooperado">
+            <icon>far:circle fa-fw </icon>
+            <action>CooperadosEnderecosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Cooperados beneficiários">
+            <icon>far:circle fa-fw </icon>
+            <action>CooperadosBeneficiariosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Documentações a vencer/vencidas">
+            <icon>far:circle fa-fw </icon>
+            <action>CooperadosDocumentacoesVencidasList#method=onShow</action>
+          </menuitem>
+        </menu>
+      </menuitem>
+      <menuitem label="Credenciados">
+        <icon>fas:building fa-fw </icon>
+        <menu>
+          <menuitem label="Credenciados">
+            <icon>far:circle fa-fw </icon>
+            <action>CredenciadosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Contatos dos credenciados">
+            <icon>far:circle fa-fw </icon>
+            <action>CredenciadosContatosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Especialidades dos credenciados">
+            <icon>far:circle fa-fw </icon>
+            <action>CredenciadosEspecialidadesList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Endereços dos credenciados">
+            <icon>far:circle fa-fw </icon>
+            <action>CredenciadosEnderecosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Documentações dos credenciados">
+            <icon>far:circle fa-fw </icon>
+            <action>CredenciadosDocumentacoesList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Documentações a vencer/vencidas">
+            <icon>far:circle fa-fw </icon>
+            <action>CredenciadosDocumentacoesVencidasList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Configurações">
+            <icon>fas:cogs fa-fw </icon>
+            <menu>
+              <menuitem label="Categoria responsável">
+                <icon>far:circle fa-fw </icon>
+                <action>CategoriaResponsavelList#method=onShow</action>
+              </menuitem>
+              <menuitem label="Credenciados movimentações">
+                <icon>far:circle fa-fw </icon>
+                <action>CredenciadosMovimentacoesList#method=onShow</action>
+              </menuitem>
+            </menu>
+          </menuitem>
+        </menu>
+      </menuitem>
+      <menuitem label="Cadastros">
+        <icon>fas:book fa-fw </icon>
+        <menu>
+          <menuitem label="Especialidades">
+            <icon>far:circle fa-fw </icon>
+            <action>EspecialidadesList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Tipos de contatos">
+            <icon>far:circle fa-fw </icon>
+            <action>TiposContatosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Tipos de documentações">
+            <icon>far:circle fa-fw </icon>
+            <action>TiposDocumentacoesList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Documentações">
+            <icon>far:circle fa-fw </icon>
+            <action>DocumentacoesList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Benefícios">
+            <icon>far:circle fa-fw </icon>
+            <action>BeneficiosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Estados">
+            <icon>far:circle fa-fw </icon>
+            <action>EstadosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Cidades">
+            <icon>far:circle fa-fw </icon>
+            <action>CidadesList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Bancos">
+            <icon>far:circle fa-fw </icon>
+            <action>BancosList#method=onShow</action>
+          </menuitem>
+          <menuitem label="Tipos de endereços">
+            <icon>far:circle fa-fw </icon>
+            <action>TiposEnderecosList#method=onShow</action>
+          </menuitem>
+        </menu>
+      </menuitem>
+      <menuitem label="Cons. de Especialidades">
+        <icon>fas:user-md fa-fw </icon>
+        <menu>
+          <menuitem label="Consultórios de especialidades">
+            <icon>far:circle fa-fw </icon>
+            <action>MedicosPfList#method=onShow</action>
+          </menuitem>
+        </menu>
+      </menuitem>
+      <menuitem label="Contratos fora da rede">
+        <icon>fas:clipboard-list fa-fw </icon>
+        <action>ContratoList#method=onShow</action>
+      </menuitem>
+      <menuitem label="Acordos">
+        <icon>fas:comments fa-fw </icon>
+        <action>AcordoList#method=onShow</action>
+      </menuitem>
+    </menu>
+  </menuitem>
+  <menuitem label="Relatórios">
+    <icon>fas:print fa-fw </icon>
+    <menu>
+      <menuitem label="Cooperados">
+        <icon>far:circle fa-fw </icon>
+        <action>CooperadosReport#method=onShow</action>
+      </menuitem>
+      <menuitem label="Capital social">
+        <icon>fas:dollar-sign fa-fw </icon>
+        <menu>
+          <menuitem label="Relação extrato">
+            <icon>far:circle fa-fw </icon>
+            <action>RelacaoExtratoForm#method=onShow</action>
+          </menuitem>
+        </menu>
+      </menuitem>
+      <menuitem label="Relatório de Credenciados ">
+        <icon>far:circle fa-fw </icon>
+        <action>RelatorioCredenciadosForm#method=onShow</action>
+      </menuitem>
+    </menu>
+  </menuitem>
+  <menuitem label="Configurações">
+    <icon>fas:cogs fa-fw </icon>
+    <menu>
+      <menuitem label="Documentações padrão dos cooperados">
+        <icon>far:circle fa-fw </icon>
+        <action>DocumentacoesPadraoCooperadosList#method=onShow</action>
+      </menuitem>
+      <menuitem label="Documentações padrão dos credenciados">
+        <icon>far:circle fa-fw </icon>
+        <action>DocumentacoesPadraoCredenciadoList#method=onShow</action>
+      </menuitem>
+    </menu>
+  </menuitem>
+  <menuitem label="Ferramentas">
+    <icon>fas:wrench fa-fw </icon>
+    <menu>
+      <menuitem label="Inclusão de documentos em massa">
+        <icon>far:circle fa-fw </icon>
+        <action>InclusaoDocForm#method=onShow</action>
+      </menuitem>
+      <menuitem label="Inclusão de benefícios em massa">
+        <icon>far:circle fa-fw </icon>
+        <action>InclusaoBeneficiosForm#method=onShow</action>
+      </menuitem>
+      <menuitem label="Geração extrato cota-capital">
+        <icon>far:circle fa-fw </icon>
+        <action>GerarExtratoCotaCapitalForm#method=onShow</action>
+      </menuitem>
+      <menuitem label="Envio documentos em massa">
+        <icon>far:circle fa-fw </icon>
+        <action>EnvioDocsMassaForm#method=onShow</action>
+      </menuitem>
+      <menuitem label="Gerar Documentos">
+        <icon>far:circle fa-fw </icon>
+        <action>GerarArquivoForm#method=onShow</action>
+      </menuitem>
+      <menuitem label="Documentos Gerados">
+        <icon>far:circle fa-fw </icon>
+        <action>ArquivosList#method=onShow</action>
+      </menuitem>
+      <menuitem label="Status dos Documentos">
+        <icon>far:circle fa-fw </icon>
+        <action>ArquivosStatusList#method=onShow</action>
+      </menuitem>
+    </menu>
+  </menuitem>
+  <menuitem label="Utilitários">
+    <icon>fas:bars fa-fw </icon>
+    <menu>
+      <menuitem label="Importador ">
+        <icon>far:circle fa-fw </icon>
+        <action>ImportadorForm#method=onShow</action>
+      </menuitem>
+      <menuitem label="Importador de capital social">
+        <icon>far:circle fa-fw </icon>
+        <action>ImportadorCapitalForm#method=onShow</action>
+      </menuitem>
+      <menuitem label="Importador de documentos">
+        <icon>far:circle fa-fw </icon>
+        <action>ImportDocsForm#method=onShow</action>
+      </menuitem>
+    </menu>
+  </menuitem>
+  <menuitem label="Parâmetros">
+    <icon>fas:code fa-fw </icon>
+    <menu>
+      <menuitem label="Jobs">
+        <icon>far:circle fa-fw </icon>
+        <action>VJobList#method=onShow</action>
+      </menuitem>
+      <menuitem label="Expressões">
+        <icon>far:circle fa-fw </icon>
+        <action>ExpressaoList#method=onShow</action>
+      </menuitem>
+      <menuitem label="Domínios">
+        <icon>far:circle fa-fw </icon>
+        <action>DominioList#method=onShow</action>
+      </menuitem>
+      <menuitem label="Parâmetros">
+        <icon>far:circle fa-fw </icon>
+        <action>ParametroList#method=onShow</action>
+      </menuitem>
+      <menuitem label="Monitor">
+        <icon>far:circle fa-fw </icon>
+        <action>MonitorForm#method=onShow</action>
+      </menuitem>
+      <menuitem label="Imagens Relatórios ">
+        <icon>far:circle fa-fw </icon>
+        <action>RelImagemList#method=onShow</action>
+      </menuitem>
+    </menu>
+  </menuitem>
+  <menuitem label="e-Mails">
+    <icon>fas:envelope fa-fw </icon>
+    <menu>
+      <menuitem label="Templates de e-mail">
+        <icon>far:circle fa-fw </icon>
+        <action>TemplatesEmailList#method=onShow</action>
+      </menuitem>
+      <menuitem label="Fila de e-mails">
+        <icon>far:circle fa-fw </icon>
+        <action>FilaEmailList#method=onShow</action>
+      </menuitem>
+      <menuitem label="Labels de email">
+        <icon>far:circle fa-fw </icon>
+        <action>LabelEmailList#method=onShow</action>
+      </menuitem>
+    </menu>
+  </menuitem>
+  <menuitem label="_t{Administration}">
+    <icon>fas:home fa-fw</icon>
+    <menu>
+      <menuitem label="Dashboard">
+        <icon>fas:tachometer-alt fa-fw</icon>
+        <action>SystemAdministrationDashboard</action>
+      </menuitem>
+      <menuitem label="_t{Programs}">
+        <icon>far:file-code fa-fw</icon>
+        <action>SystemProgramList</action>
+      </menuitem>
+      <menuitem label="_t{Groups}">
+        <icon>fas:users fa-fw</icon>
+        <action>SystemGroupList</action>
+      </menuitem>
+      <menuitem label="_t{Units}">
+        <icon>fas:university fa-fw</icon>
+        <action>SystemUnitList</action>
+      </menuitem>
+      <menuitem label="_t{Users}">
+        <icon>fas:user fa-fw</icon>
+        <action>SystemUserList</action>
+      </menuitem>
+      <menuitem label="_t{User monitoring}">
+        <icon>fas:binoculars fa-fw</icon>
+        <action>SystemUserMonitorHeaderList</action>
+      </menuitem>
+      <menuitem label="_t{Data importing}">
+        <icon>fas:cloud-upload-alt fa-fw</icon>
+        <action>SystemDataImportForm#method=onShow</action>
+      </menuitem>
+      <menuitem label="_t{Database explorer}">
+        <icon>fas:database fa-fw</icon>
+        <action>SystemDatabaseExplorer</action>
+      </menuitem>
+      <menuitem label="_t{SQL Panel}">
+        <icon>fas:table fa-fw</icon>
+        <action>SystemSQLPanel</action>
+      </menuitem>
+      <menuitem label="_t{Menu editor}">
+        <icon>far:edit fa-fw</icon>
+        <action>SystemMenuEditor</action>
+      </menuitem>
+      <menuitem label="PHP Info">
+        <icon>fas:info-circle fa-fw</icon>
+        <action>SystemPHPInfoView</action>
+      </menuitem>
+      <menuitem label="System Information">
+        <icon>fas:desktop fa-fw</icon>
+        <action>SystemInformationView</action>
+      </menuitem>
+      <menuitem label="_t{Preferences}">
+        <icon>fas:cog fa-fw</icon>
+        <action>SystemPreferenceForm#method=onEdit</action>
+      </menuitem>
+    </menu>
+  </menuitem>
+  <menuitem label="_t{Documents}">
+    <icon>far:file-alt fa-fw</icon>
+    <menu>
+      <menuitem label="_t{Send document}">
+        <icon>fas:cloud-upload-alt fa-fw</icon>
+        <action>SystemDocumentUploadForm</action>
+      </menuitem>
+      <menuitem label="_t{My documents}">
+        <icon>fas:archive fa-fw</icon>
+        <action>SystemDocumentList</action>
+      </menuitem>
+      <menuitem label="_t{Shared with me}">
+        <icon>fas:share-alt fa-fw</icon>
+        <action>SystemSharedDocumentList</action>
+      </menuitem>
+      <menuitem label="_t{Categories}">
+        <icon>fas:th fa-fw</icon>
+        <action>SystemDocumentCategoryFormList</action>
+      </menuitem>
+    </menu>
+  </menuitem>
+  <menuitem label="Logs">
+    <icon>fas:desktop fa-fw</icon>
+    <menu>
+      <menuitem label="Dashboard">
+        <icon>fas:tachometer-alt fa-fw</icon>
+        <action>SystemLogDashboard</action>
+      </menuitem>
+      <menuitem label="_t{Access Log}">
+        <icon>fas:key fa-fw</icon>
+        <action>SystemAccessLogList</action>
+      </menuitem>
+      <menuitem label="_t{Change Log}">
+        <icon>fas:film fa-fw</icon>
+        <action>SystemChangeLogView</action>
+      </menuitem>
+      <menuitem label="_t{SQL Log}">
+        <icon>fas:database fa-fw</icon>
+        <action>SystemSqlLogList</action>
+      </menuitem>
+      <menuitem label="_t{Request Log}">
+        <icon>fas:globe fa-fw</icon>
+        <action>SystemRequestLogList</action>
+      </menuitem>
+      <menuitem label="_t{PHP Log}">
+        <icon>fas:exclamation-triangle fa-fw</icon>
+        <action>SystemPHPErrorLogView</action>
+      </menuitem>
+      <menuitem label="Session dump">
+        <icon>fas:code fa-fw</icon>
+        <action>SystemSessionDumpView</action>
+      </menuitem>
+    </menu>
+  </menuitem>
+  <menuitem label="Logout">
+    <icon>fas:sign-out-alt fa-fw</icon>
+    <action>LoginForm#method=onLogout#static=1</action>
+  </menuitem>
+</menu>

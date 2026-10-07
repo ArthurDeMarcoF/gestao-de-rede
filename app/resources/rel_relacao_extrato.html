@@ -1,0 +1,30 @@
+<!--[main]-->
+
+<section name="main">
+  <style>
+    .cabecalho-relatorio {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .titulo-cabecalho {
+      text-align: center; flex: 1; color: #00843D; 
+    }
+    .radape {
+      margin-top: 20px; font-size: 10px; color: #666; border-top: 1px solid #ccc; padding-top: 5px;
+      display: flex; justify-content: space-between;
+    }
+  </style>
+
+  <div class="cabecalho-relatorio">
+    <img src="app/images/logo_unimed.png" width="100">
+    <h2 class="titulo-cabecalho">Relatório de Capital Social</h2>
+  </div>
+
+  {html_completo}
+
+  <div class="radape">
+    <span class="nome-user">{user}</span>
+    <span class="data-geracao">{data}</span>
+  </div>
+</section>
+
+<!--[/main]-->
