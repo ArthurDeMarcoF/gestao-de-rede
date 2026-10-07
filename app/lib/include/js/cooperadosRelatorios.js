@@ -196,6 +196,8 @@
             carregando: false,
             removido: false,
             requisicao: null,
+            filtrosRelatorios: '',
+            filtrosAbertos: false,
             versaoRenderizacao: 0,
             timerToast: null,
             timerResize: null
@@ -314,6 +316,7 @@
         }
 
         function desenharBarras(container, entradas, corSerie) {
+            container.scrollTop = 0;
             container.replaceChildren();
 
             if (!entradas.length) {
@@ -329,21 +332,19 @@
             var maiorValor = Math.max.apply(null, entradas.map(function (entrada) {
                 return Number(entrada.total || 0);
             }));
-            var passo = Math.max(1, Math.ceil(maiorValor / 4));
+            var passo = Math.max(1, Math.ceil((maiorValor * 1.12) / 5));
+            var maximoDoEixo = passo * 5;
+            var alturaGrafico = Math.max(315, entradas.length * 42 + 75);
             var marcas = [];
 
-            for (var valor = 0; valor <= maiorValor; valor += passo) {
+            for (var valor = 0; valor <= maximoDoEixo; valor += passo) {
                 marcas.push(valor);
-            }
-
-            if (marcas[marcas.length - 1] !== maiorValor) {
-                marcas.push(maiorValor);
             }
 
             estado.graficos.push(window.c3.generate({
                 bindto: container,
                 size: {
-                    height: Math.max(315, entradas.length * 39 + 75)
+                    height: alturaGrafico
                 },
                 padding: {
                     top: 12,
@@ -385,6 +386,7 @@
                     },
                     y: {
                         min: 0,
+                        max: maximoDoEixo,
                         padding: { bottom: 0, top: 0 },
                         tick: {
                             values: marcas,
@@ -426,8 +428,8 @@
                 var neutralFaint = cor(estilo, 'neutral-faint', '#c4ccc8');
                 var situacoes = consolidarEntradas(graficos.situacao, nomeSituacao, 3);
                 var sexos = consolidarEntradas(graficos.sexo, nomeSexo);
-                var especialidades = consolidarEntradas(graficos.especialidades, null, 8);
-                var cidades = consolidarEntradas(graficos.cidades, null, 8);
+                var especialidades = consolidarEntradas(graficos.especialidades);
+                var cidades = consolidarEntradas(graficos.cidades);
 
                 desenharDonut(
                     raiz.querySelector('#crChartSituacao'),
@@ -495,15 +497,91 @@
         }
 
         function filtrosValidos() {
-            var inicio = formulario.querySelector('[name="data_filiacao_inicio"]').value;
-            var fim = formulario.querySelector('[name="data_filiacao_fim"]').value;
+            var intervalos = [
+                ['data_filiacao_inicio', 'data_filiacao_fim', 'filiação'],
+                ['dt_desfiliacao_inicio', 'dt_desfiliacao_fim', 'desfiliação'],
+                ['vigente_inicial', 'vigente_final', 'vigência']
+            ];
 
-            if (inicio && fim && inicio > fim) {
-                mostrarMensagem('A data inicial não pode ser posterior à data final.', true);
-                return false;
+            for (var indice = 0; indice < intervalos.length; indice += 1) {
+                var intervalo = intervalos[indice];
+                var inicio = formulario.querySelector('[name="' + intervalo[0] + '"]').value;
+                var fim = formulario.querySelector('[name="' + intervalo[1] + '"]').value;
+
+                if (inicio && fim && inicio > fim) {
+                    mostrarMensagem('A data inicial de ' + intervalo[2] + ' não pode ser posterior à data final.', true);
+                    return false;
+                }
             }
 
             return true;
+        }
+
+        function definirFiltrosAbertos(abertos) {
+            var secao = raiz.querySelector('.cooperados-relatorios-filters');
+            var botao = raiz.querySelector('[data-cr-action="toggle-filters"]');
+            var painel = raiz.querySelector('#cooperadosRelatoriosFiltrosPainel');
+            var rotulo = raiz.querySelector('[data-cr-filter-toggle-label]');
+            var chevron = raiz.querySelector('[data-cr-filter-chevron]');
+
+            estado.filtrosAbertos = !!abertos;
+
+            if (secao) {
+                secao.classList.toggle('is-expanded', estado.filtrosAbertos);
+            }
+
+            if (botao) {
+                botao.setAttribute('aria-expanded', estado.filtrosAbertos ? 'true' : 'false');
+            }
+
+            if (painel) {
+                painel.setAttribute('aria-hidden', estado.filtrosAbertos ? 'false' : 'true');
+            }
+
+            if (rotulo) {
+                rotulo.textContent = estado.filtrosAbertos ? 'Ocultar filtros' : 'Filtros';
+            }
+
+            if (chevron) {
+                chevron.classList.toggle('fa-chevron-down', !estado.filtrosAbertos);
+                chevron.classList.toggle('fa-chevron-up', estado.filtrosAbertos);
+            }
+        }
+
+        function contarFiltrosAtivos(parametros) {
+            var filtrosAtivos = Object.create(null);
+
+            parametros.forEach(function (valor, chave) {
+                if (String(valor).trim() !== '') {
+                    filtrosAtivos[chave] = true;
+                }
+            });
+
+            return Object.keys(filtrosAtivos).length;
+        }
+
+        function atualizarBadgeFiltros(parametros) {
+            var quantidade = contarFiltrosAtivos(parametros);
+            var secao = raiz.querySelector('.cooperados-relatorios-filters');
+            var badge = raiz.querySelector('[data-cr-filter-count]');
+
+            if (secao) {
+                secao.classList.toggle('has-active-filters', quantidade > 0);
+            }
+
+            if (badge) {
+                badge.textContent = String(quantidade);
+                badge.hidden = quantidade === 0;
+            }
+        }
+
+        function guardarFiltrosRelatorios(parametros) {
+            estado.filtrosRelatorios = parametros.toString();
+            atualizarBadgeFiltros(parametros);
+
+            raiz.querySelectorAll('[data-cr-report]').forEach(function (botao) {
+                botao.dataset.crFilters = estado.filtrosRelatorios;
+            });
         }
 
         function atualizar() {
@@ -542,6 +620,7 @@
                     return payload.dados;
                 });
             }).then(function (dados) {
+                guardarFiltrosRelatorios(parametros);
                 return aplicarDados(dados);
             }).then(function () {
                 mostrarMensagem('Indicadores atualizados.');
@@ -581,8 +660,8 @@
 
                 if (acao === 'limpar') {
                     limparFiltros();
-                } else if (acao === 'atualizar') {
-                    atualizar();
+                } else if (acao === 'toggle-filters') {
+                    definirFiltrosAbertos(!estado.filtrosAbertos);
                 }
             }
 
@@ -619,7 +698,7 @@
 
                 combo.select2({
                     width: '100%',
-                    allowClear: false,
+                    allowClear: true,
                     dropdownParent: window.jQuery(raiz),
                     placeholder: combo.data('placeholder') || 'Selecione',
                     language: {
@@ -670,6 +749,8 @@
         formulario.addEventListener('submit', aoEnviar);
         window.addEventListener('resize', aoRedimensionar);
         iniciarCombos();
+        guardarFiltrosRelatorios(new URLSearchParams(new FormData(formulario)));
+        definirFiltrosAbertos(false);
 
         observer = new MutationObserver(function () {
             if (!raiz.isConnected) {
@@ -680,7 +761,10 @@
 
         window[instanciaGlobal] = {
             raiz: raiz,
-            destruir: destruir
+            destruir: destruir,
+            obterFiltrosRelatorios: function () {
+                return estado.filtrosRelatorios;
+            }
         };
 
         renderizarGraficos();
