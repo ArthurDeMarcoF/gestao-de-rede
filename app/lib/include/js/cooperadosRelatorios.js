@@ -198,6 +198,7 @@
             requisicao: null,
             filtrosRelatorios: '',
             filtrosAbertos: false,
+            ultimoFocoRelatorio: null,
             versaoRenderizacao: 0,
             timerToast: null,
             timerResize: null
@@ -220,13 +221,20 @@
             }, erro ? 5200 : 3500);
         }
 
-        function definirCarregando(carregando) {
+        function definirCarregando(carregando, mensagem, carregamentoRelatorio) {
             estado.carregando = carregando;
             raiz.classList.toggle('is-loading', carregando);
+            raiz.classList.toggle('is-report-loading', carregando && !!carregamentoRelatorio);
             raiz.setAttribute('aria-busy', carregando ? 'true' : 'false');
 
+            var textoCarregamento = raiz.querySelector('[data-cr-loading-text]');
+
+            if (textoCarregamento) {
+                textoCarregamento.textContent = mensagem || 'Atualizando indicadores...';
+            }
+
             Array.prototype.forEach.call(
-                raiz.querySelectorAll('[data-cr-action="aplicar"], [data-cr-action="limpar"], [data-cr-action="atualizar"]'),
+                raiz.querySelectorAll('[data-cr-action="aplicar"], [data-cr-action="limpar"], [data-cr-report="cooperados"]'),
                 function (botao) {
                     botao.disabled = carregando;
                 }
@@ -584,6 +592,200 @@
             });
         }
 
+        function fecharRelatorioCooperados() {
+            var modal = raiz.querySelector('[data-cr-cooperados-modal]');
+
+            if (!modal || modal.hidden) {
+                return;
+            }
+
+            modal.hidden = true;
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('cooperados-relatorios-modal-open');
+
+            if (estado.ultimoFocoRelatorio && typeof estado.ultimoFocoRelatorio.focus === 'function') {
+                estado.ultimoFocoRelatorio.focus();
+            }
+
+            estado.ultimoFocoRelatorio = null;
+        }
+
+        function abrirRelatorioCooperados() {
+            var modal = raiz.querySelector('[data-cr-cooperados-modal]');
+            var dialogo = raiz.querySelector('.cooperados-relatorios-report-dialog');
+
+            if (!modal || !dialogo) {
+                throw new Error('A visualização do relatório não está disponível.');
+            }
+
+            modal.hidden = false;
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('cooperados-relatorios-modal-open');
+            window.requestAnimationFrame(function () {
+                dialogo.focus();
+            });
+        }
+
+        function renderizarFiltrosRelatorio(filtros) {
+            var container = raiz.querySelector('[data-cr-report-filters]');
+
+            if (!container) {
+                return;
+            }
+
+            container.replaceChildren();
+
+            if (!Array.isArray(filtros) || !filtros.length) {
+                var nenhum = document.createElement('span');
+                nenhum.textContent = 'Nenhum filtro aplicado';
+                container.appendChild(nenhum);
+                return;
+            }
+
+            var fragmento = document.createDocumentFragment();
+
+            filtros.forEach(function (filtro) {
+                var item = document.createElement('span');
+                var rotulo = document.createElement('strong');
+                var valor = document.createElement('span');
+
+                item.className = 'cooperados-relatorios-report-filter-item';
+                rotulo.textContent = String(filtro.rotulo || 'Filtro') + ':';
+                valor.textContent = String(filtro.valor || '-');
+                item.appendChild(rotulo);
+                item.appendChild(valor);
+                fragmento.appendChild(item);
+            });
+
+            container.appendChild(fragmento);
+        }
+
+        function renderizarTabelaRelatorio(dados) {
+            var colunas = Array.isArray(dados.colunas) ? dados.colunas : [];
+            var registros = Array.isArray(dados.registros) ? dados.registros : [];
+            var cabecalho = raiz.querySelector('[data-cr-report-head]');
+            var corpo = raiz.querySelector('[data-cr-report-body]');
+            var tabelaContainer = raiz.querySelector('[data-cr-report-table-wrap]');
+            var vazioContainer = raiz.querySelector('[data-cr-report-empty]');
+
+            if (!cabecalho || !corpo || !tabelaContainer || !vazioContainer) {
+                throw new Error('A tabela do relatório não está disponível.');
+            }
+
+            cabecalho.replaceChildren();
+            corpo.replaceChildren();
+            tabelaContainer.scrollTop = 0;
+            tabelaContainer.scrollLeft = 0;
+            tabelaContainer.hidden = registros.length === 0;
+            vazioContainer.hidden = registros.length !== 0;
+
+            if (!registros.length) {
+                return;
+            }
+
+            var linhaCabecalho = document.createElement('tr');
+
+            colunas.forEach(function (coluna) {
+                var th = document.createElement('th');
+                th.scope = 'col';
+                th.dataset.column = String(coluna.chave || '');
+                th.textContent = String(coluna.rotulo || coluna.chave || '');
+                linhaCabecalho.appendChild(th);
+            });
+
+            cabecalho.appendChild(linhaCabecalho);
+
+            var fragmento = document.createDocumentFragment();
+
+            registros.forEach(function (registro) {
+                var linha = document.createElement('tr');
+
+                colunas.forEach(function (coluna) {
+                    var celula = document.createElement('td');
+                    var chave = String(coluna.chave || '');
+                    var valor = registro && registro[chave] !== null && registro[chave] !== undefined
+                        ? String(registro[chave]).trim()
+                        : '';
+
+                    celula.dataset.column = chave;
+                    celula.textContent = valor || '-';
+                    linha.appendChild(celula);
+                });
+
+                fragmento.appendChild(linha);
+            });
+
+            corpo.appendChild(fragmento);
+        }
+
+        function renderizarRelatorioCooperados(dados) {
+            var total = Number(dados && dados.total);
+            var totalElemento = raiz.querySelector('[data-cr-report-total]');
+
+            if (!Number.isFinite(total)) {
+                total = Array.isArray(dados && dados.registros) ? dados.registros.length : 0;
+            }
+
+            if (totalElemento) {
+                totalElemento.textContent = numero(total) + (total === 1
+                    ? ' cooperado encontrado'
+                    : ' cooperados encontrados');
+            }
+
+            renderizarFiltrosRelatorio(dados && dados.filtros_aplicados);
+            renderizarTabelaRelatorio(dados || {});
+        }
+
+        function carregarRelatorioCooperados() {
+            if (estado.carregando) {
+                return;
+            }
+
+            estado.ultimoFocoRelatorio = document.activeElement;
+            definirCarregando(true, 'Carregando relatório de cooperados...', true);
+            estado.requisicao = new AbortController();
+
+            fetch('engine.php?class=CooperadosRelatorios&method=onRelatorioCooperadosAjax', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin',
+                body: estado.filtrosRelatorios,
+                signal: estado.requisicao.signal
+            }).then(function (resposta) {
+                return resposta.text().then(function (texto) {
+                    var payload;
+
+                    try {
+                        payload = JSON.parse(texto);
+                    } catch (erro) {
+                        throw new Error('A resposta do relatório não pôde ser processada.');
+                    }
+
+                    if (!resposta.ok || !payload.sucesso) {
+                        throw new Error(payload.erro || 'Não foi possível carregar o relatório de cooperados.');
+                    }
+
+                    return payload.dados;
+                });
+            }).then(function (dados) {
+                renderizarRelatorioCooperados(dados || {});
+                abrirRelatorioCooperados();
+            }).catch(function (erro) {
+                if (erro.name !== 'AbortError' && !estado.removido) {
+                    mostrarMensagem(erro.message || 'Não foi possível carregar o relatório de cooperados.', true);
+                }
+            }).finally(function () {
+                estado.requisicao = null;
+
+                if (!estado.removido) {
+                    definirCarregando(false);
+                }
+            });
+        }
+
         function atualizar() {
             if (estado.carregando || !filtrosValidos()) {
                 return;
@@ -654,6 +856,12 @@
         function aoClicar(evento) {
             var botaoAcao = evento.target.closest('[data-cr-action]');
             var botaoRelatorio = evento.target.closest('[data-cr-report]');
+            var fecharRelatorio = evento.target.closest('[data-cr-report-close]');
+
+            if (fecharRelatorio && raiz.contains(fecharRelatorio)) {
+                fecharRelatorioCooperados();
+                return;
+            }
 
             if (botaoAcao && raiz.contains(botaoAcao)) {
                 var acao = botaoAcao.getAttribute('data-cr-action');
@@ -666,7 +874,17 @@
             }
 
             if (botaoRelatorio && raiz.contains(botaoRelatorio)) {
-                mostrarMensagem('Relatório ainda não disponível. A interface está preparada para a próxima etapa.');
+                if (botaoRelatorio.getAttribute('data-cr-report') === 'cooperados') {
+                    carregarRelatorioCooperados();
+                } else {
+                    mostrarMensagem('Relatório ainda não disponível. A interface está preparada para a próxima etapa.');
+                }
+            }
+        }
+
+        function aoTeclar(evento) {
+            if (evento.key === 'Escape') {
+                fecharRelatorioCooperados();
             }
         }
 
@@ -732,8 +950,10 @@
             window.clearTimeout(estado.timerToast);
             window.clearTimeout(estado.timerResize);
             window.removeEventListener('resize', aoRedimensionar);
+            document.removeEventListener('keydown', aoTeclar);
             raiz.removeEventListener('click', aoClicar);
             formulario.removeEventListener('submit', aoEnviar);
+            document.body.classList.remove('cooperados-relatorios-modal-open');
             destruirGraficos();
 
             if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {
@@ -748,6 +968,7 @@
         raiz.addEventListener('click', aoClicar);
         formulario.addEventListener('submit', aoEnviar);
         window.addEventListener('resize', aoRedimensionar);
+        document.addEventListener('keydown', aoTeclar);
         iniciarCombos();
         guardarFiltrosRelatorios(new URLSearchParams(new FormData(formulario)));
         definirFiltrosAbertos(false);

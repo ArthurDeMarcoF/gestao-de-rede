@@ -9,7 +9,7 @@ class CooperadosRelatorios extends TPage
     {
         parent::__construct();
 
-        if (($_REQUEST['method'] ?? '') === 'onAtualizarAjax') {
+        if (in_array($_REQUEST['method'] ?? '', ['onAtualizarAjax', 'onRelatorioCooperadosAjax'], true)) {
             return;
         }
 
@@ -72,6 +72,39 @@ class CooperadosRelatorios extends TPage
 
             echo json_encode(
                 ['sucesso' => false, 'erro' => $e->getMessage()],
+                JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+            );
+            exit;
+        }
+    }
+
+    public function onRelatorioCooperadosAjax($param = null)
+    {
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: private, no-store');
+
+        try {
+            $filtros = $this->prepararFiltros($_POST);
+
+            TTransaction::open(self::$database);
+            $dados = $this->buscarDadosRelatorioCooperados($filtros);
+            TTransaction::close();
+
+            echo json_encode(
+                ['sucesso' => true, 'dados' => $dados],
+                JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+            );
+            exit;
+        } catch (Throwable $e) {
+            $this->rollback();
+            http_response_code(500);
+
+            $mensagem = $e instanceof InvalidArgumentException
+                ? $e->getMessage()
+                : 'Não foi possível carregar o relatório de cooperados. Tente novamente.';
+
+            echo json_encode(
+                ['sucesso' => false, 'erro' => $mensagem],
                 JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
             );
             exit;
@@ -226,6 +259,140 @@ class CooperadosRelatorios extends TPage
                 'cidades' => $this->normalizarAgrupamento($cidades),
             ],
             'atualizado_em' => date('d/m/Y H:i'),
+        ];
+    }
+
+    /**
+     * Fonte única do relatório cadastral. O retorno estruturado pode ser
+     * reutilizado posteriormente pelos exportadores PDF, CSV e XLS/XLSX.
+     */
+    private function buscarDadosRelatorioCooperados(array $filtros): array
+    {
+        [$where, $parametros] = $this->montarFiltrosSql($filtros);
+        $situacaoSql = $this->expressaoSituacaoSql();
+        $cooperados = $this->consultar(
+            "SELECT
+                c.id,
+                c.nome,
+                c.crm,
+                c.cpf,
+                c.rg,
+                c.sexo,
+                c.data_nascimento,
+                c.estado_civil,
+                c.data_filiacao,
+                c.dt_desfiliacao,
+                {$situacaoSql} AS situacao_codigo,
+                c.forma_integralizacao,
+                c.cnis,
+                c.inss,
+                c.flg_recolhe_inss,
+                c.flg_retem_ir,
+                c.flg_declara_dep,
+                c.numero_filhos
+             FROM cooperados c
+             WHERE {$where}
+             ORDER BY c.nome ASC, c.id ASC",
+            $parametros
+        );
+
+        $especialidadesPorCooperado = [];
+        $cidadesPorCooperado = [];
+
+        if ($cooperados) {
+            $especialidadesPorCooperado = $this->agruparRelacionamentosRelatorio(
+                $this->consultar(
+                    "SELECT c.id AS cooperado_id, e.especialidade AS nome
+                     FROM cooperados c
+                     INNER JOIN cooperados_especialidades ce ON ce.cooperados_id = c.id
+                     INNER JOIN especialidades e ON e.id = ce.especialidades_id
+                     WHERE {$where}
+                       AND NULLIF(TRIM(e.especialidade), '') IS NOT NULL
+                     ORDER BY c.id, e.especialidade",
+                    $parametros
+                )
+            );
+
+            $cidadesPorCooperado = $this->agruparRelacionamentosRelatorio(
+                $this->consultar(
+                    "SELECT c.id AS cooperado_id, ci.cidade AS nome
+                     FROM cooperados c
+                     INNER JOIN enderecos_cooperados ec ON ec.cooperados_id = c.id
+                     INNER JOIN cidades ci ON ci.id = ec.cidades_id
+                     WHERE {$where}
+                       AND NULLIF(TRIM(ci.cidade), '') IS NOT NULL
+                     ORDER BY c.id, ci.cidade",
+                    $parametros
+                )
+            );
+        }
+
+        $mapaSexos = $this->buscarMapaSexos();
+        $mapaEstadosCivis = $this->mapearOpcoes($this->buscarOpcoesDominioCol('estado_civil'));
+        $registros = [];
+
+        foreach ($cooperados as $cooperado) {
+            $id = (int) ($cooperado['id'] ?? 0);
+            $situacaoCodigo = (string) ($cooperado['situacao_codigo'] ?? '');
+
+            if ($situacaoCodigo === 'ATIVO') {
+                $situacao = 'Ativo';
+            } elseif ($situacaoCodigo === 'INATIVO') {
+                $situacao = 'Inativo';
+            } else {
+                $situacao = 'Não informado';
+            }
+
+            $registros[] = [
+                'nome' => $this->valorRelatorio($cooperado['nome'] ?? null),
+                'crm' => $this->valorRelatorio($cooperado['crm'] ?? null),
+                'cpf' => $this->formatarCpfRelatorio($cooperado['cpf'] ?? null),
+                'rg' => $this->valorRelatorio($cooperado['rg'] ?? null),
+                'sexo' => $this->formatarSexoRelatorio($cooperado['sexo'] ?? null, $mapaSexos),
+                'data_nascimento' => $this->formatarDataRelatorio($cooperado['data_nascimento'] ?? null),
+                'estado_civil' => $this->formatarDominioRelatorio($cooperado['estado_civil'] ?? null, $mapaEstadosCivis),
+                'data_filiacao' => $this->formatarDataRelatorio($cooperado['data_filiacao'] ?? null),
+                'dt_desfiliacao' => $this->formatarDataRelatorio($cooperado['dt_desfiliacao'] ?? null),
+                'situacao' => $situacao,
+                'especialidades' => $this->valorRelatorio($especialidadesPorCooperado[$id] ?? null),
+                'cidades' => $this->valorRelatorio($cidadesPorCooperado[$id] ?? null),
+                'cnis' => $this->valorRelatorio($cooperado['cnis'] ?? null),
+                'inss' => $this->valorRelatorio($cooperado['inss'] ?? null),
+                'flg_recolhe_inss' => $this->formatarSimNaoRelatorio($cooperado['flg_recolhe_inss'] ?? null),
+                'flg_retem_ir' => $this->formatarSimNaoRelatorio($cooperado['flg_retem_ir'] ?? null),
+                'flg_declara_dep' => $this->formatarSimNaoRelatorio($cooperado['flg_declara_dep'] ?? null),
+                'numero_filhos' => ($cooperado['numero_filhos'] ?? '') === '' || $cooperado['numero_filhos'] === null
+                    ? '-'
+                    : (string) ((int) $cooperado['numero_filhos']),
+                'forma_integralizacao' => $this->valorRelatorio($cooperado['forma_integralizacao'] ?? null),
+            ];
+        }
+
+        return [
+            'total' => count($registros),
+            'filtros_aplicados' => $this->descreverFiltrosAplicados($filtros, $mapaSexos, $mapaEstadosCivis),
+            'colunas' => [
+                ['chave' => 'nome', 'rotulo' => 'Nome'],
+                ['chave' => 'crm', 'rotulo' => 'CRM'],
+                ['chave' => 'cpf', 'rotulo' => 'CPF'],
+                ['chave' => 'rg', 'rotulo' => 'RG'],
+                ['chave' => 'sexo', 'rotulo' => 'Sexo'],
+                ['chave' => 'data_nascimento', 'rotulo' => 'Nascimento'],
+                ['chave' => 'estado_civil', 'rotulo' => 'Estado civil'],
+                ['chave' => 'data_filiacao', 'rotulo' => 'Filiação'],
+                ['chave' => 'dt_desfiliacao', 'rotulo' => 'Desfiliação'],
+                ['chave' => 'situacao', 'rotulo' => 'Situação'],
+                ['chave' => 'especialidades', 'rotulo' => 'Especialidades'],
+                ['chave' => 'cidades', 'rotulo' => 'Cidade(s)'],
+                ['chave' => 'cnis', 'rotulo' => 'CNIS'],
+                ['chave' => 'inss', 'rotulo' => 'INSS'],
+                ['chave' => 'flg_recolhe_inss', 'rotulo' => 'Recolhe INSS'],
+                ['chave' => 'flg_retem_ir', 'rotulo' => 'Retém IR'],
+                ['chave' => 'flg_declara_dep', 'rotulo' => 'Declara dependentes'],
+                ['chave' => 'numero_filhos', 'rotulo' => 'Nº dependentes'],
+                ['chave' => 'forma_integralizacao', 'rotulo' => 'Forma de integralização'],
+            ],
+            'registros' => $registros,
         ];
     }
 
@@ -643,6 +810,194 @@ class CooperadosRelatorios extends TPage
         return $texto !== '' ? $texto : $fallback;
     }
 
+    private function agruparRelacionamentosRelatorio(array $linhas): array
+    {
+        $agrupados = [];
+
+        foreach ($linhas as $linha) {
+            $cooperadoId = (int) ($linha['cooperado_id'] ?? 0);
+            $nome = $this->normalizarRotuloGrafico($linha['nome'] ?? '', '');
+
+            if ($cooperadoId > 0 && $nome !== '') {
+                $agrupados[$cooperadoId][$nome] = true;
+            }
+        }
+
+        $resultado = [];
+
+        foreach ($agrupados as $cooperadoId => $nomesIndexados) {
+            $nomes = array_keys($nomesIndexados);
+            natcasesort($nomes);
+            $resultado[$cooperadoId] = implode(', ', $nomes);
+        }
+
+        return $resultado;
+    }
+
+    private function mapearOpcoes(array $opcoes): array
+    {
+        $mapa = [];
+
+        foreach ($opcoes as $opcao) {
+            $id = trim((string) ($opcao['id'] ?? ''));
+
+            if ($id !== '') {
+                $mapa[$id] = $this->normalizarRotuloGrafico($opcao['nome'] ?? '', $id);
+            }
+        }
+
+        return $mapa;
+    }
+
+    private function descreverFiltrosAplicados(array $filtros, array $mapaSexos, array $mapaEstadosCivis): array
+    {
+        $descricoes = [];
+        $adicionar = static function (string $rotulo, $valor) use (&$descricoes): void {
+            if ($valor !== null && trim((string) $valor) !== '') {
+                $descricoes[] = ['rotulo' => $rotulo, 'valor' => (string) $valor];
+            }
+        };
+
+        $adicionar('Nome', $filtros['nome']);
+        $adicionar('CRM', $filtros['crm']);
+        $adicionar('CPF', $filtros['cpf']);
+        $adicionar('RG', $filtros['rg']);
+        $adicionar('Sexo', $filtros['sexo'] !== '' ? $this->formatarSexoRelatorio($filtros['sexo'], $mapaSexos) : null);
+        $adicionar('Estado civil', $filtros['estado_civil'] !== '' ? $this->formatarDominioRelatorio($filtros['estado_civil'], $mapaEstadosCivis) : null);
+        $adicionar('CNIS', $filtros['cnis']);
+        $adicionar('INSS', $filtros['inss']);
+        $adicionar('Filiação inicial', $filtros['data_filiacao_inicio'] ? $this->formatarDataRelatorio($filtros['data_filiacao_inicio']) : null);
+        $adicionar('Filiação final', $filtros['data_filiacao_fim'] ? $this->formatarDataRelatorio($filtros['data_filiacao_fim']) : null);
+        $adicionar('Nascimento', $filtros['data_nascimento'] ? $this->formatarDataRelatorio($filtros['data_nascimento']) : null);
+        $adicionar('Desfiliação inicial', $filtros['dt_desfiliacao_inicio'] ? $this->formatarDataRelatorio($filtros['dt_desfiliacao_inicio']) : null);
+        $adicionar('Desfiliação final', $filtros['dt_desfiliacao_fim'] ? $this->formatarDataRelatorio($filtros['dt_desfiliacao_fim']) : null);
+
+        if ($filtros['situacao'] !== '') {
+            $adicionar('Situação', $filtros['situacao'] === 'ATIVO' ? 'Ativo' : 'Inativo');
+        }
+
+        if ($filtros['especialidade_id'] !== null) {
+            $especialidade = $this->consultarUmaLinha(
+                'SELECT especialidade AS nome FROM especialidades WHERE id = :id',
+                ['id' => $filtros['especialidade_id']]
+            );
+            $adicionar('Especialidade', $this->normalizarRotuloGrafico($especialidade['nome'] ?? '', 'Não encontrada'));
+        }
+
+        if ($filtros['cidade_id'] !== null) {
+            $cidade = $this->consultarUmaLinha(
+                'SELECT cidade AS nome FROM cidades WHERE id = :id',
+                ['id' => $filtros['cidade_id']]
+            );
+            $adicionar('Cidade', $this->normalizarRotuloGrafico($cidade['nome'] ?? '', 'Não encontrada'));
+        }
+
+        if ($filtros['flg_recolhe_inss'] !== '') {
+            $adicionar('Recolhe INSS', $this->formatarSimNaoRelatorio($filtros['flg_recolhe_inss']));
+        }
+
+        if ($filtros['flg_retem_ir'] !== '') {
+            $adicionar('Retém IR', $this->formatarSimNaoRelatorio($filtros['flg_retem_ir']));
+        }
+
+        if ($filtros['flg_declara_dep'] !== '') {
+            $adicionar('Declara dependentes', $this->formatarSimNaoRelatorio($filtros['flg_declara_dep']));
+        }
+
+        $adicionar('Vigente inicial', $filtros['vigente_inicial'] ? $this->formatarDataRelatorio($filtros['vigente_inicial']) : null);
+        $adicionar('Vigente final', $filtros['vigente_final'] ? $this->formatarDataRelatorio($filtros['vigente_final']) : null);
+
+        return $descricoes;
+    }
+
+    private function valorRelatorio($valor): string
+    {
+        $texto = trim((string) ($valor ?? ''));
+
+        return $texto !== '' ? $texto : '-';
+    }
+
+    private function formatarDataRelatorio($valor): string
+    {
+        $texto = trim((string) ($valor ?? ''));
+
+        if ($texto === '') {
+            return '-';
+        }
+
+        $data = DateTime::createFromFormat('!Y-m-d', substr($texto, 0, 10));
+
+        return $data ? $data->format('d/m/Y') : $this->valorRelatorio($texto);
+    }
+
+    private function formatarCpfRelatorio($valor): string
+    {
+        $texto = trim((string) ($valor ?? ''));
+        $digitos = preg_replace('/\D+/', '', $texto) ?? '';
+
+        if (strlen($digitos) === 11) {
+            return substr($digitos, 0, 3) . '.'
+                . substr($digitos, 3, 3) . '.'
+                . substr($digitos, 6, 3) . '-'
+                . substr($digitos, 9, 2);
+        }
+
+        return $this->valorRelatorio($texto);
+    }
+
+    private function formatarSexoRelatorio($valor, array $mapaSexos): string
+    {
+        $codigo = trim((string) ($valor ?? ''));
+
+        if ($codigo === '') {
+            return '-';
+        }
+
+        if (isset($mapaSexos[$codigo])) {
+            return $this->normalizarRotuloGrafico($mapaSexos[$codigo], '-');
+        }
+
+        $normalizado = mb_strtoupper($codigo, 'UTF-8');
+
+        if (in_array($normalizado, ['M', 'MASCULINO'], true)) {
+            return 'Masculino';
+        }
+
+        if (in_array($normalizado, ['F', 'FEMININO'], true)) {
+            return 'Feminino';
+        }
+
+        return 'Não informado';
+    }
+
+    private function formatarDominioRelatorio($valor, array $mapa): string
+    {
+        $codigo = trim((string) ($valor ?? ''));
+
+        if ($codigo === '') {
+            return '-';
+        }
+
+        return isset($mapa[$codigo])
+            ? $this->normalizarRotuloGrafico($mapa[$codigo], '-')
+            : 'Não informado';
+    }
+
+    private function formatarSimNaoRelatorio($valor): string
+    {
+        $normalizado = mb_strtoupper(trim((string) ($valor ?? '')), 'UTF-8');
+
+        if (in_array($normalizado, ['S', 'SIM', '1'], true)) {
+            return 'Sim';
+        }
+
+        if (in_array($normalizado, ['N', 'NAO', 'NÃO', '0'], true)) {
+            return 'Não';
+        }
+
+        return '-';
+    }
+
     private function montarPagina(array $dados, array $opcoes): string
     {
         $total = $this->numero($dados['kpis']['total']);
@@ -999,9 +1354,47 @@ class CooperadosRelatorios extends TPage
                 Atualizado em <span data-cr-atualizado>{$atualizadoEm}</span>
             </div>
 
+            <div class="cooperados-relatorios-report-modal" data-cr-cooperados-modal aria-hidden="true" hidden>
+                <div class="cooperados-relatorios-report-backdrop" data-cr-report-close></div>
+                <section class="cooperados-relatorios-report-dialog" role="dialog" aria-modal="true" aria-labelledby="crRelatorioCooperadosTitulo" tabindex="-1">
+                    <header class="cooperados-relatorios-report-dialog-header">
+                        <div class="cooperados-relatorios-report-dialog-title">
+                            <span class="cooperados-relatorios-report-dialog-icon" aria-hidden="true"><i class="fas fa-users"></i></span>
+                            <div>
+                                <span class="cooperados-relatorios-kicker">RELATÓRIO CADASTRAL</span>
+                                <h2 id="crRelatorioCooperadosTitulo">Relatório de Cooperados</h2>
+                                <p data-cr-report-total aria-live="polite">0 cooperados encontrados</p>
+                            </div>
+                        </div>
+                        <button type="button" class="cooperados-relatorios-report-close" data-cr-report-close aria-label="Fechar relatório" title="Fechar">
+                            <i class="fas fa-times" aria-hidden="true"></i>
+                        </button>
+                    </header>
+
+                    <div class="cooperados-relatorios-report-dialog-body">
+                        <section class="cooperados-relatorios-report-filters" aria-labelledby="crRelatorioFiltrosTitulo">
+                            <h3 id="crRelatorioFiltrosTitulo"><i class="fas fa-filter" aria-hidden="true"></i> Filtros aplicados</h3>
+                            <div class="cooperados-relatorios-report-filter-list" data-cr-report-filters></div>
+                        </section>
+
+                        <div class="cooperados-relatorios-report-empty" data-cr-report-empty hidden>
+                            <i class="fas fa-search" aria-hidden="true"></i>
+                            <strong>Nenhum cooperado encontrado para os filtros selecionados.</strong>
+                        </div>
+
+                        <div class="cooperados-relatorios-report-table-wrap" data-cr-report-table-wrap hidden>
+                            <table class="cooperados-relatorios-report-table">
+                                <thead data-cr-report-head></thead>
+                                <tbody data-cr-report-body></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
             <div class="cooperados-relatorios-loading" aria-hidden="true">
                 <span class="cooperados-relatorios-spinner"></span>
-                <span>Atualizando indicadores...</span>
+                <span data-cr-loading-text>Atualizando indicadores...</span>
             </div>
             <div class="cooperados-relatorios-toast" role="status" aria-live="polite"></div>
 
