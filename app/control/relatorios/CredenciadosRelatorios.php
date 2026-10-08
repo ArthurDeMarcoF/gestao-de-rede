@@ -372,6 +372,7 @@ class CredenciadosRelatorios extends TPage
         $tipos = $this->mapearOpcoes($this->buscarOpcoesDominioCol('dm_tipo'));
         $tributos = $this->mapearOpcoes($this->buscarOpcoesEnquadramento());
         $reajustes = $this->mapearOpcoes($this->buscarOpcoesDominioCol('dm_reaj_contr'));
+        $diasPadrao = $this->mapearOpcoes($this->buscarOpcoesDominioCol('flg_dias_padrao'));
         $registros = [];
         foreach ($linhas as $linha) {
             $id = (int) ($linha['id'] ?? 0);
@@ -379,7 +380,7 @@ class CredenciadosRelatorios extends TPage
             $registros[] = [
                 'nome' => $this->valorRelatorio($linha['nome'] ?? null),
                 'codigo_prestador' => $this->valorRelatorio($linha['codigo_prestador'] ?? null),
-                'cnpj' => $this->valorRelatorio($linha['cnpj'] ?? null),
+                'cnpj' => $this->formatarCnpjRelatorio($linha['cnpj'] ?? null),
                 'cnes' => $this->valorRelatorio($linha['cnes'] ?? null),
                 'inscricao_estadual' => $this->valorRelatorio($linha['inscricao_estadual'] ?? null),
                 'situacao' => $situacao,
@@ -392,7 +393,7 @@ class CredenciadosRelatorios extends TPage
                 'dt_descredenciamento' => $this->formatarDataRelatorio($linha['dt_descredenciamento'] ?? null),
                 'dm_reaj_contr' => $this->formatarDominioRelatorio($linha['dm_reaj_contr'] ?? null, $reajustes),
                 'nr_dias_aviso_reaj' => $this->valorRelatorio($linha['nr_dias_aviso_reaj'] ?? null),
-                'flg_dias_padrao' => $this->formatarSimNaoRelatorio($linha['flg_dias_padrao'] ?? null),
+                'flg_dias_padrao' => $this->formatarDominioRelatorio($linha['flg_dias_padrao'] ?? null, $diasPadrao),
             ];
         }
         return [
@@ -854,6 +855,7 @@ class CredenciadosRelatorios extends TPage
             'tipos' => $this->buscarOpcoesDominioCol('dm_tipo'),
             'enquadramentos' => $this->buscarOpcoesEnquadramento(),
             'reajustes' => $this->buscarOpcoesDominioCol('dm_reaj_contr'),
+            'dias_padrao' => $this->buscarOpcoesDominioCol('flg_dias_padrao'),
             'especialidades' => $this->consultar(
                 "SELECT id, especialidade AS nome FROM especialidades WHERE NULLIF(TRIM(especialidade), '') IS NOT NULL ORDER BY especialidade"
             ),
@@ -866,9 +868,22 @@ class CredenciadosRelatorios extends TPage
     private function buscarOpcoesEnquadramento(): array
     {
         $linhas = $this->consultar(
-            "SELECT valor AS id, mascara AS nome FROM v_dominio_valor WHERE codigo = :codigo ORDER BY sequencia, mascara",
-            ['codigo' => 'dm_enquadr_trib']
+            "SELECT valor AS id, mascara AS nome
+             FROM v_dominio_valor_col
+             WHERE objeto = :objeto
+               AND atributo = :atributo
+             ORDER BY sequencia, mascara",
+            ['objeto' => 'credenciados', 'atributo' => 'enquadramento_tributario']
         );
+
+        // O cadastro usa o domínio global dm_enquadr_trib. Mantemos esse
+        // caminho como fallback para bases antigas sem o relacionamento por coluna.
+        if (!$linhas) {
+            $linhas = $this->consultar(
+                "SELECT valor AS id, mascara AS nome FROM v_dominio_valor WHERE codigo = :codigo ORDER BY sequencia, mascara",
+                ['codigo' => 'dm_enquadr_trib']
+            );
+        }
         $opcoes = [];
         foreach ($linhas as $linha) {
             $id = trim((string) ($linha['id'] ?? ''));
@@ -946,11 +961,11 @@ class CredenciadosRelatorios extends TPage
         $this->validarIntervalo($datas['dt_descredenciamento_inicio'], $datas['dt_descredenciamento_fim'], 'descredenciamento');
         $this->validarIntervalo($datas['vigente_inicial'], $datas['vigente_final'], 'vigência');
         $resultados = [
-            'nome' => $this->validarTexto($entrada, 'nome', 150, 'nome'),
-            'cnpj' => $this->validarTexto($entrada, 'cnpj', 20, 'CNPJ'),
-            'cnes' => $this->validarTexto($entrada, 'cnes', 20, 'CNES'),
-            'inscricao_estadual' => $this->validarTexto($entrada, 'inscricao_estadual', 35, 'inscrição estadual'),
-            'codigo_prestador' => $this->validarTexto($entrada, 'codigo_prestador', 30, 'código do prestador'),
+            'nome' => $this->validarTexto($entrada, 'nome', 100, 'nome'),
+            'cnpj' => $this->validarTexto($entrada, 'cnpj', 18, 'CNPJ'),
+            'cnes' => $this->validarTexto($entrada, 'cnes', 15, 'CNES'),
+            'inscricao_estadual' => $this->validarTexto($entrada, 'inscricao_estadual', 15, 'inscrição estadual'),
+            'codigo_prestador' => $this->validarTexto($entrada, 'codigo_prestador', 15, 'código do prestador'),
             'situacao' => $situacao,
             'dm_tipo' => $this->validarTexto($entrada, 'dm_tipo', 50, 'tipo'),
             'enquadramento_tributario' => $this->validarTexto($entrada, 'enquadramento_tributario', 50, 'enquadramento tributário'),
@@ -1107,6 +1122,7 @@ class CredenciadosRelatorios extends TPage
         $tipos = $this->mapearOpcoes($this->buscarOpcoesDominioCol('dm_tipo'));
         $tributos = $this->mapearOpcoes($this->buscarOpcoesEnquadramento());
         $reajustes = $this->mapearOpcoes($this->buscarOpcoesDominioCol('dm_reaj_contr'));
+        $diasPadrao = $this->mapearOpcoes($this->buscarOpcoesDominioCol('flg_dias_padrao'));
         $campos = [
             'nome' => 'Nome',
             'cnpj' => 'CNPJ',
@@ -1141,7 +1157,7 @@ class CredenciadosRelatorios extends TPage
             } elseif ($campo === 'situacao') {
                 $valor = $valor === 'ATIVO' ? 'Ativo' : 'Inativo';
             } elseif ($campo === 'flg_dias_padrao') {
-                $valor = $this->formatarSimNaoRelatorio($valor);
+                $valor = $diasPadrao[$valor] ?? $valor;
             } elseif (preg_match('/^(data_|dt_|vigente_)/', $campo)) {
                 $valor = $this->formatarDataRelatorio($valor);
             }
@@ -1175,7 +1191,25 @@ class CredenciadosRelatorios extends TPage
         $data = DateTime::createFromFormat('!Y-m-d', substr($texto, 0, 10));
 
         return $data ? $data->format('d/m/Y') : $this->valorRelatorio($texto);
-    }    private function formatarDominioRelatorio($valor, array $mapa): string
+    }
+
+    private function formatarCnpjRelatorio($valor): string
+    {
+        $texto = trim((string) ($valor ?? ''));
+        $digitos = preg_replace('/\D+/', '', $texto) ?? '';
+
+        if (strlen($digitos) === 14) {
+            return substr($digitos, 0, 2) . '.'
+                . substr($digitos, 2, 3) . '.'
+                . substr($digitos, 5, 3) . '/'
+                . substr($digitos, 8, 4) . '-'
+                . substr($digitos, 12, 2);
+        }
+
+        return $this->valorRelatorio($texto);
+    }
+
+    private function formatarDominioRelatorio($valor, array $mapa): string
     {
         $codigo = trim((string) ($valor ?? ''));
 
@@ -1186,21 +1220,6 @@ class CredenciadosRelatorios extends TPage
         return isset($mapa[$codigo])
             ? $this->normalizarRotuloGrafico($mapa[$codigo], '-')
             : 'Não informado';
-    }
-
-    private function formatarSimNaoRelatorio($valor): string
-    {
-        $normalizado = mb_strtoupper(trim((string) ($valor ?? '')), 'UTF-8');
-
-        if (in_array($normalizado, ['S', 'SIM', '1'], true)) {
-            return 'Sim';
-        }
-
-        if (in_array($normalizado, ['N', 'NAO', 'NÃO', '0'], true)) {
-            return 'Não';
-        }
-
-        return '-';
     }
 
     private function montarPagina(array $dados, array $opcoes): string
@@ -1214,6 +1233,9 @@ class CredenciadosRelatorios extends TPage
         $optionsTipos = $this->montarOptions($opcoes['tipos'], 'Todos');
         $optionsEnquadramentos = $this->montarOptions($opcoes['enquadramentos'], 'Todos');
         $optionsReajustes = $this->montarOptions($opcoes['reajustes'], 'Todos');
+        $mapaDiasPadrao = $this->mapearOpcoes($opcoes['dias_padrao']);
+        $rotuloDiasPadraoSim = $this->h($mapaDiasPadrao['S'] ?? 'Sim');
+        $rotuloDiasPadraoNao = $this->h($mapaDiasPadrao['N'] ?? 'Não');
         $optionsEspecialidades = $this->montarOptions($opcoes['especialidades'], 'Todas');
         $optionsCidades = $this->montarOptions($opcoes['cidades'], 'Todas');
         $config = json_encode(
@@ -1264,11 +1286,11 @@ class CredenciadosRelatorios extends TPage
                                 <div><h3 id="crGrupoPrincipais">Dados principais</h3><p>Identificação e dados cadastrais do credenciado.</p></div>
                             </div>
                             <div class="credenciados-relatorios-filter-grid">
-                                <div class="credenciados-relatorios-field is-wide"><label for="crNome">Nome</label><input type="text" id="crNome" name="nome" maxlength="150" placeholder="Buscar parte do nome"></div>
-                                <div class="credenciados-relatorios-field"><label for="crCnpj">CNPJ</label><input type="text" id="crCnpj" name="cnpj" maxlength="20" placeholder="Buscar CNPJ"></div>
-                                <div class="credenciados-relatorios-field"><label for="crCnes">CNES</label><input type="text" id="crCnes" name="cnes" maxlength="20" placeholder="Buscar CNES"></div>
-                                <div class="credenciados-relatorios-field"><label for="crCodigoPrestador">Código do prestador</label><input type="text" id="crCodigoPrestador" name="codigo_prestador" maxlength="30" placeholder="Buscar código"></div>
-                                <div class="credenciados-relatorios-field"><label for="crInscricaoEstadual">Inscrição estadual</label><input type="text" id="crInscricaoEstadual" name="inscricao_estadual" maxlength="35" placeholder="Buscar inscrição estadual"></div>
+                                <div class="credenciados-relatorios-field is-wide"><label for="crNome">Nome</label><input type="text" id="crNome" name="nome" maxlength="100" placeholder="Buscar parte do nome"></div>
+                                <div class="credenciados-relatorios-field"><label for="crCnpj">CNPJ</label><input type="text" id="crCnpj" name="cnpj" maxlength="18" placeholder="Buscar CNPJ"></div>
+                                <div class="credenciados-relatorios-field"><label for="crCnes">CNES</label><input type="text" id="crCnes" name="cnes" maxlength="15" placeholder="Buscar CNES"></div>
+                                <div class="credenciados-relatorios-field"><label for="crCodigoPrestador">Código do prestador</label><input type="text" id="crCodigoPrestador" name="codigo_prestador" maxlength="15" placeholder="Buscar código"></div>
+                                <div class="credenciados-relatorios-field"><label for="crInscricaoEstadual">Inscrição estadual</label><input type="text" id="crInscricaoEstadual" name="inscricao_estadual" maxlength="15" placeholder="Buscar inscrição estadual"></div>
                             </div>
                         </section>
                         <section class="credenciados-relatorios-filter-group" aria-labelledby="crGrupoClassificacao">
@@ -1309,8 +1331,8 @@ class CredenciadosRelatorios extends TPage
                                 </div></fieldset>
                                 <fieldset class="credenciados-relatorios-field credenciados-relatorios-flag-field"><legend>Dias padrão de aviso</legend><div class="credenciados-relatorios-toggle-group">
                                     <input type="radio" id="crDiasTodos" name="flg_dias_padrao" value="" checked><label for="crDiasTodos">Todos</label>
-                                    <input type="radio" id="crDiasSim" name="flg_dias_padrao" value="S"><label for="crDiasSim">Sim</label>
-                                    <input type="radio" id="crDiasNao" name="flg_dias_padrao" value="N"><label for="crDiasNao">Não</label>
+                                    <input type="radio" id="crDiasSim" name="flg_dias_padrao" value="S"><label for="crDiasSim">{$rotuloDiasPadraoSim}</label>
+                                    <input type="radio" id="crDiasNao" name="flg_dias_padrao" value="N"><label for="crDiasNao">{$rotuloDiasPadraoNao}</label>
                                 </div></fieldset>
                             </div>
                         </section>
