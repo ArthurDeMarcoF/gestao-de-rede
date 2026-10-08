@@ -194,8 +194,10 @@
             dados: config.dados || { kpis: {}, graficos: {} },
             graficos: [],
             carregando: false,
+            exportandoExcel: false,
             removido: false,
             requisicao: null,
+            requisicaoExcel: null,
             filtrosRelatorios: '',
             filtrosAbertos: false,
             ultimoFocoRelatorio: null,
@@ -736,6 +738,118 @@
             renderizarTabelaRelatorio(dados || {});
         }
 
+        function definirExportandoExcel(exportando) {
+            estado.exportandoExcel = exportando;
+
+            var botao = raiz.querySelector('[data-cr-report-excel]');
+            var icone = raiz.querySelector('[data-cr-report-excel-icon]');
+            var rotulo = raiz.querySelector('[data-cr-report-excel-label]');
+
+            if (botao) {
+                botao.disabled = exportando;
+                botao.classList.toggle('is-loading', exportando);
+                botao.setAttribute('aria-busy', exportando ? 'true' : 'false');
+            }
+
+            if (icone) {
+                icone.className = exportando ? 'fas fa-spinner fa-spin' : 'fas fa-file-excel';
+            }
+
+            if (rotulo) {
+                rotulo.textContent = exportando ? 'Gerando...' : 'Excel';
+            }
+        }
+
+        function nomeArquivoExcel(resposta) {
+            var disposicao = resposta.headers.get('Content-Disposition') || '';
+            var codificado = disposicao.match(/filename\*=UTF-8''([^;]+)/i);
+            var simples = disposicao.match(/filename="?([^";]+)"?/i);
+            var nome = codificado ? codificado[1] : (simples ? simples[1] : 'relatorio_cooperados.xlsx');
+
+            try {
+                nome = decodeURIComponent(nome);
+            } catch (erro) {
+                nome = String(nome);
+            }
+
+            return nome.replace(/[\\/:*?"<>|]/g, '_');
+        }
+
+        function baixarArquivoExcel(blob, nomeArquivo) {
+            var url = window.URL.createObjectURL(blob);
+            var link = document.createElement('a');
+
+            link.href = url;
+            link.download = nomeArquivo;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            window.setTimeout(function () {
+                window.URL.revokeObjectURL(url);
+            }, 1000);
+        }
+
+        function exportarRelatorioCooperadosExcel() {
+            if (estado.exportandoExcel || estado.carregando) {
+                return;
+            }
+
+            definirExportandoExcel(true);
+            estado.requisicaoExcel = new AbortController();
+
+            fetch('engine.php?class=CooperadosRelatorios&method=onExportarCooperadosExcel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin',
+                body: estado.filtrosRelatorios,
+                signal: estado.requisicaoExcel.signal
+            }).then(function (resposta) {
+                if (!resposta.ok) {
+                    return resposta.text().then(function (texto) {
+                        var payload;
+
+                        try {
+                            payload = JSON.parse(texto);
+                        } catch (erro) {
+                            payload = null;
+                        }
+
+                        throw new Error(payload && payload.erro
+                            ? payload.erro
+                            : 'Não foi possível gerar o arquivo Excel. Tente novamente.');
+                    });
+                }
+
+                var nomeArquivo = nomeArquivoExcel(resposta);
+
+                return resposta.blob().then(function (blob) {
+                    if (!blob.size) {
+                        throw new Error('O arquivo Excel gerado está vazio. Tente novamente.');
+                    }
+
+                    return { blob: blob, nomeArquivo: nomeArquivo };
+                });
+            }).then(function (arquivo) {
+                baixarArquivoExcel(arquivo.blob, arquivo.nomeArquivo);
+                mostrarMensagem('Relatório Excel gerado com sucesso.');
+            }).catch(function (erro) {
+                if (erro.name !== 'AbortError' && !estado.removido) {
+                    mostrarMensagem(erro.message || 'Não foi possível gerar o arquivo Excel. Tente novamente.', true);
+                }
+            }).finally(function () {
+                estado.requisicaoExcel = null;
+
+                if (!estado.removido) {
+                    definirExportandoExcel(false);
+                }
+            });
+        }
+
         function carregarRelatorioCooperados() {
             if (estado.carregando) {
                 return;
@@ -856,10 +970,16 @@
         function aoClicar(evento) {
             var botaoAcao = evento.target.closest('[data-cr-action]');
             var botaoRelatorio = evento.target.closest('[data-cr-report]');
+            var botaoExcel = evento.target.closest('[data-cr-report-excel]');
             var fecharRelatorio = evento.target.closest('[data-cr-report-close]');
 
             if (fecharRelatorio && raiz.contains(fecharRelatorio)) {
                 fecharRelatorioCooperados();
+                return;
+            }
+
+            if (botaoExcel && raiz.contains(botaoExcel)) {
+                exportarRelatorioCooperadosExcel();
                 return;
             }
 
@@ -941,6 +1061,10 @@
 
             if (estado.requisicao) {
                 estado.requisicao.abort();
+            }
+
+            if (estado.requisicaoExcel) {
+                estado.requisicaoExcel.abort();
             }
 
             if (observer) {

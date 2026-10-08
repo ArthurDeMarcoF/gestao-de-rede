@@ -9,7 +9,7 @@ class CooperadosRelatorios extends TPage
     {
         parent::__construct();
 
-        if (in_array($_REQUEST['method'] ?? '', ['onAtualizarAjax', 'onRelatorioCooperadosAjax'], true)) {
+        if (in_array($_REQUEST['method'] ?? '', ['onAtualizarAjax', 'onRelatorioCooperadosAjax', 'onExportarCooperadosExcel'], true)) {
             return;
         }
 
@@ -105,6 +105,72 @@ class CooperadosRelatorios extends TPage
 
             echo json_encode(
                 ['sucesso' => false, 'erro' => $mensagem],
+                JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+            );
+            exit;
+        }
+    }
+
+    public function onExportarCooperadosExcel($param = null)
+    {
+        $arquivoTemporario = null;
+
+        try {
+            $filtros = $this->prepararFiltros($_POST);
+
+            TTransaction::open(self::$database);
+            $dados = $this->buscarDadosRelatorioCooperados($filtros);
+            TTransaction::close();
+
+            $arquivoTemporario = tempnam(sys_get_temp_dir(), 'relatorio_cooperados_');
+
+            if ($arquivoTemporario === false) {
+                throw new RuntimeException('Não foi possível preparar o arquivo Excel.');
+            }
+
+            $this->gerarExcelRelatorioCooperados($dados, $arquivoTemporario);
+
+            if (!is_file($arquivoTemporario) || filesize($arquivoTemporario) === 0) {
+                throw new RuntimeException('O arquivo Excel não pôde ser gerado.');
+            }
+
+            $nomeArquivo = 'relatorio_cooperados_' . date('Y-m-d') . '.xlsx';
+
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $nomeArquivo . '"; filename*=UTF-8\'\'' . rawurlencode($nomeArquivo));
+            header('Content-Length: ' . filesize($arquivoTemporario));
+            header('Cache-Control: private, no-store, no-cache, must-revalidate');
+            header('Pragma: no-cache');
+            header('X-Content-Type-Options: nosniff');
+
+            readfile($arquivoTemporario);
+            unlink($arquivoTemporario);
+            $arquivoTemporario = null;
+            exit;
+        } catch (Throwable $e) {
+            $this->rollback();
+
+            if ($arquivoTemporario !== null && is_file($arquivoTemporario)) {
+                unlink($arquivoTemporario);
+            }
+
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
+            http_response_code(500);
+            header('Content-Type: application/json; charset=UTF-8');
+            header('Cache-Control: private, no-store');
+
+            echo json_encode(
+                [
+                    'sucesso' => false,
+                    'erro' => 'Não foi possível gerar o arquivo Excel. Tente novamente.',
+                ],
                 JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
             );
             exit;
@@ -394,6 +460,258 @@ class CooperadosRelatorios extends TPage
             ],
             'registros' => $registros,
         ];
+    }
+
+    private function gerarExcelRelatorioCooperados(array $dados, string $caminhoArquivo): void
+    {
+        if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            throw new RuntimeException('A biblioteca de geração de planilhas não está disponível.');
+        }
+
+        $colunas = is_array($dados['colunas'] ?? null) ? $dados['colunas'] : [];
+        $registros = is_array($dados['registros'] ?? null) ? $dados['registros'] : [];
+
+        if (!$colunas) {
+            throw new RuntimeException('As colunas do relatório não estão disponíveis.');
+        }
+
+        $planilha = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        try {
+            $aba = $planilha->getActiveSheet();
+            $aba->setTitle('Cooperados');
+            $aba->setShowGridlines(false);
+            $planilha->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
+            $aba->getDefaultRowDimension()->setRowHeight(20);
+
+            $ultimaColuna = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($colunas));
+            $corPrimaria = '008F57';
+            $corPrimariaEscura = '006F45';
+            $corPrimariaSuave = 'E7F7EF';
+            $corTexto = '172333';
+            $corTextoSuave = '697789';
+            $corBorda = 'DFE6EC';
+            $corLinhaAlternada = 'F8FAFB';
+
+            $aba->mergeCells("A1:{$ultimaColuna}1");
+            $aba->setCellValueExplicit('A1', 'Relatório de Cooperados', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $aba->getRowDimension(1)->setRowHeight(28);
+            $aba->getStyle("A1:{$ultimaColuna}1")->applyFromArray([
+                'font' => [
+                    'bold' => true,
+                    'size' => 16,
+                    'color' => ['rgb' => $corPrimariaEscura],
+                ],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                ],
+                'borders' => [
+                    'bottom' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM,
+                        'color' => ['rgb' => $corPrimaria],
+                    ],
+                ],
+            ]);
+
+            $total = (int) ($dados['total'] ?? count($registros));
+            $aba->mergeCells("A2:{$ultimaColuna}2");
+            $aba->setCellValueExplicit(
+                'A2',
+                'Total de cooperados: ' . number_format($total, 0, ',', '.'),
+                \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+            );
+            $aba->getStyle("A2:{$ultimaColuna}2")->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['rgb' => $corTexto]],
+                'alignment' => ['vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
+            ]);
+
+            $aba->mergeCells("A4:{$ultimaColuna}4");
+            $aba->setCellValueExplicit('A4', 'Filtros aplicados', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $aba->getStyle("A4:{$ultimaColuna}4")->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['rgb' => $corPrimariaEscura]],
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => $corPrimariaSuave],
+                ],
+                'alignment' => ['vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
+            ]);
+
+            $filtrosAplicados = [];
+
+            foreach ((array) ($dados['filtros_aplicados'] ?? []) as $filtro) {
+                $rotulo = trim((string) ($filtro['rotulo'] ?? ''));
+                $valor = trim((string) ($filtro['valor'] ?? ''));
+
+                if ($rotulo !== '' && $valor !== '') {
+                    $filtrosAplicados[] = $rotulo . ': ' . $valor;
+                }
+            }
+
+            if (!$filtrosAplicados) {
+                $filtrosAplicados[] = 'Nenhum filtro aplicado';
+            }
+
+            $linhaFiltro = 5;
+
+            foreach ($filtrosAplicados as $filtroAplicado) {
+                $aba->mergeCells("A{$linhaFiltro}:{$ultimaColuna}{$linhaFiltro}");
+                $aba->setCellValueExplicit(
+                    "A{$linhaFiltro}",
+                    $filtroAplicado,
+                    \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+                );
+                $aba->getStyle("A{$linhaFiltro}:{$ultimaColuna}{$linhaFiltro}")->applyFromArray([
+                    'font' => ['color' => ['rgb' => $corTextoSuave]],
+                    'alignment' => [
+                        'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                        'wrapText' => true,
+                    ],
+                ]);
+                $linhaFiltro++;
+            }
+
+            $linhaCabecalho = $linhaFiltro + 1;
+
+            foreach ($colunas as $indice => $coluna) {
+                $letraColuna = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1);
+                $aba->setCellValueExplicit(
+                    $letraColuna . $linhaCabecalho,
+                    (string) ($coluna['rotulo'] ?? $coluna['chave'] ?? ''),
+                    \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+                );
+            }
+
+            $aba->getRowDimension($linhaCabecalho)->setRowHeight(32);
+            $aba->getStyle("A{$linhaCabecalho}:{$ultimaColuna}{$linhaCabecalho}")->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => $corPrimaria],
+                ],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
+                ],
+                'borders' => [
+                    'bottom' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM,
+                        'color' => ['rgb' => $corPrimariaEscura],
+                    ],
+                ],
+            ]);
+
+            $chavesTextoObrigatorio = ['crm', 'cpf', 'rg', 'cnis', 'inss'];
+            $chavesData = ['data_nascimento', 'data_filiacao', 'dt_desfiliacao'];
+            $linhaDadosInicial = $linhaCabecalho + 1;
+
+            foreach ($registros as $indiceRegistro => $registro) {
+                $linha = $linhaDadosInicial + $indiceRegistro;
+
+                foreach ($colunas as $indiceColuna => $coluna) {
+                    $chave = (string) ($coluna['chave'] ?? '');
+                    $valor = trim((string) ($registro[$chave] ?? '-'));
+                    $valor = $valor !== '' ? $valor : '-';
+                    $letraColuna = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indiceColuna + 1);
+                    $celula = $letraColuna . $linha;
+
+                    if (in_array($chave, $chavesData, true) && $valor !== '-') {
+                        $data = \DateTimeImmutable::createFromFormat('!d/m/Y', $valor);
+
+                        if ($data !== false) {
+                            $aba->setCellValueExplicit(
+                                $celula,
+                                \PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel($data),
+                                \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC
+                            );
+                            $aba->getStyle($celula)->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                            continue;
+                        }
+                    }
+
+                    if ($chave === 'numero_filhos' && $valor !== '-' && ctype_digit($valor)) {
+                        $aba->setCellValueExplicit($celula, (int) $valor, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
+                        continue;
+                    }
+
+                    $aba->setCellValueExplicit($celula, $valor, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+
+                    if (in_array($chave, $chavesTextoObrigatorio, true)) {
+                        $aba->getStyle($celula)->getNumberFormat()->setFormatCode('@');
+                    }
+                }
+
+                $aba->getStyle("A{$linha}:{$ultimaColuna}{$linha}")->getBorders()->getBottom()
+                    ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
+                    ->getColor()->setRGB($corBorda);
+
+                if ($indiceRegistro % 2 === 1) {
+                    $aba->getStyle("A{$linha}:{$ultimaColuna}{$linha}")->getFill()
+                        ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                        ->getStartColor()->setRGB($corLinhaAlternada);
+                }
+            }
+
+            $ultimaLinhaDados = max($linhaCabecalho, $linhaCabecalho + count($registros));
+
+            if ($registros) {
+                $aba->getStyle("A{$linhaDadosInicial}:{$ultimaColuna}{$ultimaLinhaDados}")->getAlignment()
+                    ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP);
+            }
+
+            $larguras = [
+                'nome' => 34,
+                'crm' => 14,
+                'cpf' => 18,
+                'rg' => 18,
+                'sexo' => 15,
+                'data_nascimento' => 15,
+                'estado_civil' => 19,
+                'data_filiacao' => 15,
+                'dt_desfiliacao' => 15,
+                'situacao' => 15,
+                'especialidades' => 42,
+                'cidades' => 32,
+                'cnis' => 20,
+                'inss' => 20,
+                'flg_recolhe_inss' => 16,
+                'flg_retem_ir' => 14,
+                'flg_declara_dep' => 20,
+                'numero_filhos' => 16,
+                'forma_integralizacao' => 38,
+            ];
+
+            foreach ($colunas as $indice => $coluna) {
+                $letraColuna = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1);
+                $chave = (string) ($coluna['chave'] ?? '');
+                $aba->getColumnDimension($letraColuna)->setWidth($larguras[$chave] ?? 18);
+
+                if (in_array($chave, ['nome', 'especialidades', 'cidades', 'forma_integralizacao'], true) && $registros) {
+                    $aba->getStyle("{$letraColuna}{$linhaDadosInicial}:{$letraColuna}{$ultimaLinhaDados}")
+                        ->getAlignment()->setWrapText(true);
+                }
+            }
+
+            $aba->freezePane('A' . ($linhaCabecalho + 1));
+            $aba->setAutoFilter("A{$linhaCabecalho}:{$ultimaColuna}{$ultimaLinhaDados}");
+            $aba->setSelectedCell('A' . $linhaDadosInicial);
+            $aba->getPageSetup()
+                ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE)
+                ->setFitToWidth(1)
+                ->setFitToHeight(0);
+            $aba->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd($linhaCabecalho, $linhaCabecalho);
+            $aba->getPageMargins()->setTop(0.4)->setRight(0.3)->setBottom(0.4)->setLeft(0.3);
+            $planilha->getProperties()
+                ->setCreator('Gestão de Rede')
+                ->setTitle('Relatório de Cooperados')
+                ->setSubject('Relatório cadastral de cooperados');
+
+            $escritor = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($planilha);
+            $escritor->save($caminhoArquivo);
+        } finally {
+            $planilha->disconnectWorksheets();
+        }
     }
 
     private function montarFiltrosSql(array $filtros): array
@@ -1366,9 +1684,15 @@ class CooperadosRelatorios extends TPage
                                 <p data-cr-report-total aria-live="polite">0 cooperados encontrados</p>
                             </div>
                         </div>
-                        <button type="button" class="cooperados-relatorios-report-close" data-cr-report-close aria-label="Fechar relatório" title="Fechar">
-                            <i class="fas fa-times" aria-hidden="true"></i>
-                        </button>
+                        <div class="cooperados-relatorios-report-dialog-actions">
+                            <button type="button" class="cooperados-relatorios-report-excel" data-cr-report-excel aria-label="Baixar relatório em Excel" title="Baixar em Excel">
+                                <i class="fas fa-file-excel" data-cr-report-excel-icon aria-hidden="true"></i>
+                                <span data-cr-report-excel-label>Excel</span>
+                            </button>
+                            <button type="button" class="cooperados-relatorios-report-close" data-cr-report-close aria-label="Fechar relatório" title="Fechar">
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </header>
 
                     <div class="cooperados-relatorios-report-dialog-body">

@@ -1038,6 +1038,49 @@ body.cooperados-relatorios-modal-open {
     font-size: 12px;
 }
 
+.cooperados-relatorios-report-dialog-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.cooperados-relatorios-report-excel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-width: 86px;
+    height: 36px;
+    padding: 0 13px;
+    border: 1px solid rgba(0, 143, 87, .3);
+    border-radius: 9px;
+    outline: none;
+    color: var(--cooperados-relatorios-primary-dark);
+    background: var(--cooperados-relatorios-primary-soft);
+    font-size: 12px;
+    font-weight: 760;
+    cursor: pointer;
+    transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.cooperados-relatorios-report-excel:hover,
+.cooperados-relatorios-report-excel:focus-visible {
+    border-color: var(--cooperados-relatorios-primary);
+    box-shadow: 0 0 0 3px rgba(0, 143, 87, .12);
+    transform: translateY(-1px);
+}
+
+.cooperados-relatorios-report-excel:disabled {
+    cursor: wait;
+    opacity: .72;
+    transform: none;
+}
+
+.cooperados-relatorios-report-excel i {
+    font-size: 14px;
+}
+
 .cooperados-relatorios-report-close {
     display: inline-flex;
     flex: 0 0 36px;
@@ -1442,6 +1485,18 @@ body.dark .cooperados-relatorios-field input[type="date"],
 
     .cooperados-relatorios-hero-title {
         align-items: flex-start;
+    }
+
+    .cooperados-relatorios-report-dialog-header {
+        flex-wrap: wrap;
+    }
+
+    .cooperados-relatorios-report-dialog-title {
+        flex: 1 1 100%;
+    }
+
+    .cooperados-relatorios-report-dialog-actions {
+        margin-left: auto;
     }
 
     .cooperados-relatorios-hero-icon {
