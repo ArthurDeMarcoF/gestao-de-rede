@@ -643,8 +643,8 @@ class CredenciadosRelatorios extends TPage
                 ],
             ]);
 
-            $chavesTextoObrigatorio = ['crm', 'cpf', 'rg', 'cnis', 'inss'];
-            $chavesData = ['data_nascimento', 'data_filiacao', 'dt_desfiliacao'];
+            $chavesTextoObrigatorio = ['cnpj', 'cnes', 'inscricao_estadual', 'codigo_prestador', 'contato'];
+            $chavesData = ['data_inicio', 'data_contrato', 'dt_descredenciamento'];
             $linhaDadosInicial = $linhaCabecalho + 1;
 
             foreach ($registros as $indiceRegistro => $registro) {
@@ -671,7 +671,7 @@ class CredenciadosRelatorios extends TPage
                         }
                     }
 
-                    if ($chave === 'numero_filhos' && $valor !== '-' && ctype_digit($valor)) {
+                    if ($chave === 'nr_dias_aviso_reaj' && $valor !== '-' && ctype_digit($valor)) {
                         $aba->setCellValueExplicit($celula, (int) $valor, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
                         continue;
                     }
@@ -702,27 +702,24 @@ class CredenciadosRelatorios extends TPage
             }
 
             $larguras = [
-                'nome' => 34,
-                'crm' => 14,
-                'cpf' => 18,
-                'rg' => 18,
-                'sexo' => 15,
-                'data_nascimento' => 15,
-                'estado_civil' => 19,
-                'data_filiacao' => 15,
-                'dt_desfiliacao' => 15,
-                'situacao' => 15,
-                'especialidades' => 42,
+                'nome' => 44,
+                'codigo_prestador' => 23,
+                'cnpj' => 23,
+                'cnes' => 18,
+                'inscricao_estadual' => 23,
+                'situacao' => 18,
+                'dm_tipo' => 26,
+                'enquadramento_tributario' => 30,
+                'especialidades' => 44,
                 'cidades' => 32,
-                'cnis' => 20,
-                'inss' => 20,
-                'flg_recolhe_inss' => 16,
-                'flg_retem_ir' => 14,
-                'flg_declara_dep' => 20,
-                'numero_filhos' => 16,
-                'forma_integralizacao' => 38,
-                'tipo_contato' => 24,
-                'contato' => 38,
+                'data_inicio' => 20,
+                'data_contrato' => 20,
+                'dt_descredenciamento' => 22,
+                'dm_reaj_contr' => 28,
+                'nr_dias_aviso_reaj' => 20,
+                'flg_dias_padrao' => 18,
+                'tipo_contato' => 27,
+                'contato' => 42,
             ];
 
             foreach ($colunas as $indice => $coluna) {
@@ -730,7 +727,7 @@ class CredenciadosRelatorios extends TPage
                 $chave = (string) ($coluna['chave'] ?? '');
                 $aba->getColumnDimension($letraColuna)->setWidth($larguras[$chave] ?? 18);
 
-                if (in_array($chave, ['nome', 'especialidades', 'cidades', 'forma_integralizacao', 'contato'], true) && $registros) {
+                if (in_array($chave, ['nome', 'especialidades', 'cidades', 'enquadramento_tributario', 'contato'], true) && $registros) {
                     $aba->getStyle("{$letraColuna}{$linhaDadosInicial}:{$letraColuna}{$ultimaLinhaDados}")
                         ->getAlignment()->setWrapText(true);
                 }
@@ -906,41 +903,6 @@ class CredenciadosRelatorios extends TPage
 
         return $opcoes;
     }
-
-    private function buscarMapaSexos(): array
-    {
-        $linhas = $this->consultar(
-            "SELECT valor, mascara
-             FROM v_dominio_valor_col
-             WHERE objeto = 'credenciados'
-               AND atributo = 'sexo'
-             ORDER BY sequencia, mascara"
-        );
-        $mapa = [];
-
-        foreach ($linhas as $linha) {
-            $valor = trim((string) ($linha['valor'] ?? ''));
-
-            if ($valor !== '') {
-                $mapa[$valor] = $this->normalizarRotuloGrafico($linha['mascara'] ?? '', $valor);
-            }
-        }
-
-        if (!$mapa) {
-            foreach ($this->consultar(
-                "SELECT DISTINCT sexo AS valor
-                 FROM credenciados
-                 WHERE NULLIF(TRIM(sexo), '') IS NOT NULL
-                 ORDER BY sexo"
-            ) as $linha) {
-                $valor = trim((string) $linha['valor']);
-                $mapa[$valor] = $valor;
-            }
-        }
-
-        return $mapa;
-    }
-
     private function consultar(string $sql, array $parametros = []): array
     {
         $stmt = TTransaction::get()->prepare($sql);
@@ -1213,49 +1175,7 @@ class CredenciadosRelatorios extends TPage
         $data = DateTime::createFromFormat('!Y-m-d', substr($texto, 0, 10));
 
         return $data ? $data->format('d/m/Y') : $this->valorRelatorio($texto);
-    }
-
-    private function formatarCpfRelatorio($valor): string
-    {
-        $texto = trim((string) ($valor ?? ''));
-        $digitos = preg_replace('/\D+/', '', $texto) ?? '';
-
-        if (strlen($digitos) === 11) {
-            return substr($digitos, 0, 3) . '.'
-                . substr($digitos, 3, 3) . '.'
-                . substr($digitos, 6, 3) . '-'
-                . substr($digitos, 9, 2);
-        }
-
-        return $this->valorRelatorio($texto);
-    }
-
-    private function formatarSexoRelatorio($valor, array $mapaSexos): string
-    {
-        $codigo = trim((string) ($valor ?? ''));
-
-        if ($codigo === '') {
-            return '-';
-        }
-
-        if (isset($mapaSexos[$codigo])) {
-            return $this->normalizarRotuloGrafico($mapaSexos[$codigo], '-');
-        }
-
-        $normalizado = mb_strtoupper($codigo, 'UTF-8');
-
-        if (in_array($normalizado, ['M', 'MASCULINO'], true)) {
-            return 'Masculino';
-        }
-
-        if (in_array($normalizado, ['F', 'FEMININO'], true)) {
-            return 'Feminino';
-        }
-
-        return 'Não informado';
-    }
-
-    private function formatarDominioRelatorio($valor, array $mapa): string
+    }    private function formatarDominioRelatorio($valor, array $mapa): string
     {
         $codigo = trim((string) ($valor ?? ''));
 
