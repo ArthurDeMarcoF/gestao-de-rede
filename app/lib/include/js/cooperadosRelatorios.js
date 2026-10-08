@@ -190,6 +190,44 @@
         }
 
         var formulario = raiz.querySelector('#form_CooperadosRelatorios');
+        var configuracoesRelatorios = {
+            cooperados: {
+                titulo: 'Relatório de Cooperados',
+                kicker: 'RELATÓRIO CADASTRAL',
+                icone: 'fas fa-users',
+                singular: 'cooperado encontrado',
+                plural: 'cooperados encontrados',
+                vazio: 'Nenhum cooperado encontrado para os filtros selecionados.',
+                carregando: 'Carregando relatório de cooperados...',
+                endpointConsulta: 'onRelatorioCooperadosAjax',
+                endpointExcel: 'onExportarCooperadosExcel',
+                arquivoPadrao: 'relatorio_cooperados.xlsx'
+            },
+            telefones: {
+                titulo: 'Relatório de Telefones',
+                kicker: 'CONTATOS DOS COOPERADOS',
+                icone: 'fas fa-phone',
+                singular: 'telefone encontrado',
+                plural: 'telefones encontrados',
+                vazio: 'Nenhum telefone encontrado para os filtros selecionados.',
+                carregando: 'Carregando relatório de telefones...',
+                endpointConsulta: 'onRelatorioContatosAjax',
+                endpointExcel: 'onExportarContatosExcel',
+                arquivoPadrao: 'relatorio_telefones.xlsx'
+            },
+            emails: {
+                titulo: 'Relatório de E-mails',
+                kicker: 'CONTATOS DOS COOPERADOS',
+                icone: 'fas fa-envelope',
+                singular: 'e-mail encontrado',
+                plural: 'e-mails encontrados',
+                vazio: 'Nenhum e-mail encontrado para os filtros selecionados.',
+                carregando: 'Carregando relatório de e-mails...',
+                endpointConsulta: 'onRelatorioContatosAjax',
+                endpointExcel: 'onExportarContatosExcel',
+                arquivoPadrao: 'relatorio_emails.xlsx'
+            }
+        };
         var estado = {
             dados: config.dados || { kpis: {}, graficos: {} },
             graficos: [],
@@ -200,6 +238,7 @@
             requisicaoExcel: null,
             filtrosRelatorios: '',
             filtrosAbertos: false,
+            relatorioAtivo: 'cooperados',
             ultimoFocoRelatorio: null,
             versaoRenderizacao: 0,
             timerToast: null,
@@ -236,7 +275,7 @@
             }
 
             Array.prototype.forEach.call(
-                raiz.querySelectorAll('[data-cr-action="aplicar"], [data-cr-action="limpar"], [data-cr-report="cooperados"]'),
+                raiz.querySelectorAll('[data-cr-action="aplicar"], [data-cr-action="limpar"], [data-cr-report]'),
                 function (botao) {
                     botao.disabled = carregando;
                 }
@@ -628,6 +667,52 @@
             });
         }
 
+        function configuracaoRelatorio(tipo) {
+            return configuracoesRelatorios[tipo] || null;
+        }
+
+        function aplicarConfiguracaoRelatorio(tipo) {
+            var configuracao = configuracaoRelatorio(tipo);
+            var titulo = raiz.querySelector('[data-cr-report-title]');
+            var kicker = raiz.querySelector('[data-cr-report-kicker]');
+            var icone = raiz.querySelector('[data-cr-report-icon]');
+            var vazio = raiz.querySelector('[data-cr-report-empty-text]');
+
+            if (!configuracao) {
+                throw new Error('O tipo de relatório selecionado não está disponível.');
+            }
+
+            estado.relatorioAtivo = tipo;
+
+            if (titulo) {
+                titulo.textContent = configuracao.titulo;
+            }
+
+            if (kicker) {
+                kicker.textContent = configuracao.kicker;
+            }
+
+            if (icone) {
+                icone.className = configuracao.icone;
+            }
+
+            if (vazio) {
+                vazio.textContent = configuracao.vazio;
+            }
+
+            return configuracao;
+        }
+
+        function corpoRequisicaoRelatorio(tipo) {
+            var parametros = new URLSearchParams(estado.filtrosRelatorios);
+
+            if (tipo === 'telefones' || tipo === 'emails') {
+                parametros.set('relatorio_contatos', tipo);
+            }
+
+            return parametros.toString();
+        }
+
         function renderizarFiltrosRelatorio(filtros) {
             var container = raiz.querySelector('[data-cr-report-filters]');
 
@@ -720,18 +805,19 @@
             corpo.appendChild(fragmento);
         }
 
-        function renderizarRelatorioCooperados(dados) {
+        function renderizarRelatorio(dados) {
             var total = Number(dados && dados.total);
             var totalElemento = raiz.querySelector('[data-cr-report-total]');
+            var configuracao = configuracaoRelatorio(estado.relatorioAtivo);
 
             if (!Number.isFinite(total)) {
                 total = Array.isArray(dados && dados.registros) ? dados.registros.length : 0;
             }
 
-            if (totalElemento) {
-                totalElemento.textContent = numero(total) + (total === 1
-                    ? ' cooperado encontrado'
-                    : ' cooperados encontrados');
+            if (totalElemento && configuracao) {
+                totalElemento.textContent = numero(total) + ' ' + (total === 1
+                    ? configuracao.singular
+                    : configuracao.plural);
             }
 
             renderizarFiltrosRelatorio(dados && dados.filtros_aplicados);
@@ -764,7 +850,9 @@
             var disposicao = resposta.headers.get('Content-Disposition') || '';
             var codificado = disposicao.match(/filename\*=UTF-8''([^;]+)/i);
             var simples = disposicao.match(/filename="?([^";]+)"?/i);
-            var nome = codificado ? codificado[1] : (simples ? simples[1] : 'relatorio_cooperados.xlsx');
+            var configuracao = configuracaoRelatorio(estado.relatorioAtivo);
+            var nomePadrao = configuracao ? configuracao.arquivoPadrao : 'relatorio.xlsx';
+            var nome = codificado ? codificado[1] : (simples ? simples[1] : nomePadrao);
 
             try {
                 nome = decodeURIComponent(nome);
@@ -791,22 +879,29 @@
             }, 1000);
         }
 
-        function exportarRelatorioCooperadosExcel() {
+        function exportarRelatorioExcel() {
             if (estado.exportandoExcel || estado.carregando) {
+                return;
+            }
+
+            var configuracao = configuracaoRelatorio(estado.relatorioAtivo);
+
+            if (!configuracao) {
+                mostrarMensagem('O relatório selecionado não está disponível.', true);
                 return;
             }
 
             definirExportandoExcel(true);
             estado.requisicaoExcel = new AbortController();
 
-            fetch('engine.php?class=CooperadosRelatorios&method=onExportarCooperadosExcel', {
+            fetch('engine.php?class=CooperadosRelatorios&method=' + configuracao.endpointExcel, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 credentials: 'same-origin',
-                body: estado.filtrosRelatorios,
+                body: corpoRequisicaoRelatorio(estado.relatorioAtivo),
                 signal: estado.requisicaoExcel.signal
             }).then(function (resposta) {
                 if (!resposta.ok) {
@@ -850,23 +945,32 @@
             });
         }
 
-        function carregarRelatorioCooperados() {
+        function carregarRelatorio(tipo) {
             if (estado.carregando) {
                 return;
             }
 
+            var configuracao;
+
+            try {
+                configuracao = aplicarConfiguracaoRelatorio(tipo);
+            } catch (erro) {
+                mostrarMensagem(erro.message, true);
+                return;
+            }
+
             estado.ultimoFocoRelatorio = document.activeElement;
-            definirCarregando(true, 'Carregando relatório de cooperados...', true);
+            definirCarregando(true, configuracao.carregando, true);
             estado.requisicao = new AbortController();
 
-            fetch('engine.php?class=CooperadosRelatorios&method=onRelatorioCooperadosAjax', {
+            fetch('engine.php?class=CooperadosRelatorios&method=' + configuracao.endpointConsulta, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 credentials: 'same-origin',
-                body: estado.filtrosRelatorios,
+                body: corpoRequisicaoRelatorio(tipo),
                 signal: estado.requisicao.signal
             }).then(function (resposta) {
                 return resposta.text().then(function (texto) {
@@ -879,17 +983,17 @@
                     }
 
                     if (!resposta.ok || !payload.sucesso) {
-                        throw new Error(payload.erro || 'Não foi possível carregar o relatório de cooperados.');
+                        throw new Error(payload.erro || 'Não foi possível carregar o relatório selecionado.');
                     }
 
                     return payload.dados;
                 });
             }).then(function (dados) {
-                renderizarRelatorioCooperados(dados || {});
+                renderizarRelatorio(dados || {});
                 abrirRelatorioCooperados();
             }).catch(function (erro) {
                 if (erro.name !== 'AbortError' && !estado.removido) {
-                    mostrarMensagem(erro.message || 'Não foi possível carregar o relatório de cooperados.', true);
+                    mostrarMensagem(erro.message || 'Não foi possível carregar o relatório selecionado.', true);
                 }
             }).finally(function () {
                 estado.requisicao = null;
@@ -979,7 +1083,7 @@
             }
 
             if (botaoExcel && raiz.contains(botaoExcel)) {
-                exportarRelatorioCooperadosExcel();
+                exportarRelatorioExcel();
                 return;
             }
 
@@ -994,11 +1098,7 @@
             }
 
             if (botaoRelatorio && raiz.contains(botaoRelatorio)) {
-                if (botaoRelatorio.getAttribute('data-cr-report') === 'cooperados') {
-                    carregarRelatorioCooperados();
-                } else {
-                    mostrarMensagem('Relatório ainda não disponível. A interface está preparada para a próxima etapa.');
-                }
+                carregarRelatorio(botaoRelatorio.getAttribute('data-cr-report'));
             }
         }
 

@@ -9,7 +9,13 @@ class CooperadosRelatorios extends TPage
     {
         parent::__construct();
 
-        if (in_array($_REQUEST['method'] ?? '', ['onAtualizarAjax', 'onRelatorioCooperadosAjax', 'onExportarCooperadosExcel'], true)) {
+        if (in_array($_REQUEST['method'] ?? '', [
+            'onAtualizarAjax',
+            'onRelatorioCooperadosAjax',
+            'onRelatorioContatosAjax',
+            'onExportarCooperadosExcel',
+            'onExportarContatosExcel',
+        ], true)) {
             return;
         }
 
@@ -80,14 +86,38 @@ class CooperadosRelatorios extends TPage
 
     public function onRelatorioCooperadosAjax($param = null)
     {
+        $this->responderRelatorioAjax('cooperados');
+    }
+
+    public function onRelatorioContatosAjax($param = null)
+    {
+        $this->responderRelatorioAjax($this->valorEscalar($_POST, 'relatorio_contatos'));
+    }
+
+    public function onExportarCooperadosExcel($param = null)
+    {
+        $this->exportarRelatorioExcel('cooperados');
+    }
+
+    public function onExportarContatosExcel($param = null)
+    {
+        $this->exportarRelatorioExcel($this->valorEscalar($_POST, 'relatorio_contatos'));
+    }
+
+    private function responderRelatorioAjax(string $relatorio): void
+    {
         header('Content-Type: application/json; charset=UTF-8');
         header('Cache-Control: private, no-store');
+        $configuracao = null;
 
         try {
+            $configuracao = $this->configuracaoRelatorio($relatorio);
             $filtros = $this->prepararFiltros($_POST);
 
             TTransaction::open(self::$database);
-            $dados = $this->buscarDadosRelatorioCooperados($filtros);
+            $dados = $relatorio === 'cooperados'
+                ? $this->buscarDadosRelatorioCooperados($filtros)
+                : $this->buscarDadosRelatorioContatos($filtros, $relatorio);
             TTransaction::close();
 
             echo json_encode(
@@ -101,7 +131,7 @@ class CooperadosRelatorios extends TPage
 
             $mensagem = $e instanceof InvalidArgumentException
                 ? $e->getMessage()
-                : 'Não foi possível carregar o relatório de cooperados. Tente novamente.';
+                : 'Não foi possível carregar o ' . mb_strtolower($configuracao['titulo'] ?? 'relatório', 'UTF-8') . '. Tente novamente.';
 
             echo json_encode(
                 ['sucesso' => false, 'erro' => $mensagem],
@@ -111,30 +141,33 @@ class CooperadosRelatorios extends TPage
         }
     }
 
-    public function onExportarCooperadosExcel($param = null)
+    private function exportarRelatorioExcel(string $relatorio): void
     {
         $arquivoTemporario = null;
 
         try {
+            $configuracao = $this->configuracaoRelatorio($relatorio);
             $filtros = $this->prepararFiltros($_POST);
 
             TTransaction::open(self::$database);
-            $dados = $this->buscarDadosRelatorioCooperados($filtros);
+            $dados = $relatorio === 'cooperados'
+                ? $this->buscarDadosRelatorioCooperados($filtros)
+                : $this->buscarDadosRelatorioContatos($filtros, $relatorio);
             TTransaction::close();
 
-            $arquivoTemporario = tempnam(sys_get_temp_dir(), 'relatorio_cooperados_');
+            $arquivoTemporario = tempnam(sys_get_temp_dir(), $configuracao['prefixo_temporario']);
 
             if ($arquivoTemporario === false) {
                 throw new RuntimeException('Não foi possível preparar o arquivo Excel.');
             }
 
-            $this->gerarExcelRelatorioCooperados($dados, $arquivoTemporario);
+            $this->gerarExcelRelatorio($dados, $arquivoTemporario, $configuracao);
 
             if (!is_file($arquivoTemporario) || filesize($arquivoTemporario) === 0) {
                 throw new RuntimeException('O arquivo Excel não pôde ser gerado.');
             }
 
-            $nomeArquivo = 'relatorio_cooperados_' . date('Y-m-d') . '.xlsx';
+            $nomeArquivo = $configuracao['prefixo_arquivo'] . date('Y-m-d') . '.xlsx';
 
             while (ob_get_level() > 0) {
                 ob_end_clean();
@@ -462,7 +495,94 @@ class CooperadosRelatorios extends TPage
         ];
     }
 
-    private function gerarExcelRelatorioCooperados(array $dados, string $caminhoArquivo): void
+    private function buscarDadosRelatorioContatos(array $filtros, string $relatorio): array
+    {
+        $configuracao = $this->configuracaoRelatorio($relatorio);
+        [$where, $parametros] = $this->montarFiltrosSql($filtros);
+        $idsTiposContato = implode(',', array_map('intval', $configuracao['tipos_contatos']));
+
+        $linhas = $this->consultar(
+            "SELECT
+                c.nome,
+                tc.tipo_contato,
+                TRIM(cc.contato) AS contato
+             FROM cooperados c
+             INNER JOIN cooperados_contatos cc ON cc.cooperados_id = c.id
+             INNER JOIN tipos_contatos tc ON tc.id = cc.tipos_contatos_id
+             WHERE {$where}
+               AND cc.tipos_contatos_id IN ({$idsTiposContato})
+               AND cc.contato IS NOT NULL
+               AND TRIM(cc.contato) <> ''
+             ORDER BY c.nome ASC, tc.tipo_contato ASC, cc.contato ASC",
+            $parametros
+        );
+
+        $registros = [];
+
+        foreach ($linhas as $linha) {
+            $registros[] = [
+                'nome' => $this->valorRelatorio($linha['nome'] ?? null),
+                'tipo_contato' => $this->valorRelatorio($linha['tipo_contato'] ?? null),
+                'contato' => trim((string) ($linha['contato'] ?? '')),
+            ];
+        }
+
+        $mapaSexos = $this->buscarMapaSexos();
+        $mapaEstadosCivis = $this->mapearOpcoes($this->buscarOpcoesDominioCol('estado_civil'));
+
+        return [
+            'total' => count($registros),
+            'filtros_aplicados' => $this->descreverFiltrosAplicados($filtros, $mapaSexos, $mapaEstadosCivis),
+            'colunas' => [
+                ['chave' => 'nome', 'rotulo' => 'Nome do cooperado'],
+                ['chave' => 'tipo_contato', 'rotulo' => 'Tipo de contato'],
+                ['chave' => 'contato', 'rotulo' => $configuracao['rotulo_contato']],
+            ],
+            'registros' => $registros,
+        ];
+    }
+
+    private function configuracaoRelatorio(string $relatorio): array
+    {
+        $configuracoes = [
+            'cooperados' => [
+                'titulo' => 'Relatório de Cooperados',
+                'aba' => 'Cooperados',
+                'rotulo_total' => 'Total de cooperados',
+                'prefixo_temporario' => 'relatorio_cooperados_',
+                'prefixo_arquivo' => 'relatorio_cooperados_',
+                'assunto' => 'Relatório cadastral de cooperados',
+            ],
+            'telefones' => [
+                'titulo' => 'Relatório de Telefones',
+                'aba' => 'Telefones',
+                'rotulo_total' => 'Total de telefones',
+                'rotulo_contato' => 'Telefone',
+                'tipos_contatos' => [1, 3, 4, 5, 9],
+                'prefixo_temporario' => 'relatorio_telefones_',
+                'prefixo_arquivo' => 'relatorio_telefones_',
+                'assunto' => 'Relatório de telefones dos cooperados',
+            ],
+            'emails' => [
+                'titulo' => 'Relatório de E-mails',
+                'aba' => 'E-mails',
+                'rotulo_total' => 'Total de e-mails',
+                'rotulo_contato' => 'E-mail',
+                'tipos_contatos' => [2, 6, 8, 10],
+                'prefixo_temporario' => 'relatorio_emails_',
+                'prefixo_arquivo' => 'relatorio_emails_',
+                'assunto' => 'Relatório de e-mails dos cooperados',
+            ],
+        ];
+
+        if (!isset($configuracoes[$relatorio])) {
+            throw new InvalidArgumentException('O tipo de relatório informado é inválido.');
+        }
+
+        return $configuracoes[$relatorio];
+    }
+
+    private function gerarExcelRelatorio(array $dados, string $caminhoArquivo, array $configuracao): void
     {
         if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
             throw new RuntimeException('A biblioteca de geração de planilhas não está disponível.');
@@ -479,7 +599,7 @@ class CooperadosRelatorios extends TPage
 
         try {
             $aba = $planilha->getActiveSheet();
-            $aba->setTitle('Cooperados');
+            $aba->setTitle($configuracao['aba']);
             $aba->setShowGridlines(false);
             $planilha->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
             $aba->getDefaultRowDimension()->setRowHeight(20);
@@ -494,7 +614,7 @@ class CooperadosRelatorios extends TPage
             $corLinhaAlternada = 'F8FAFB';
 
             $aba->mergeCells("A1:{$ultimaColuna}1");
-            $aba->setCellValueExplicit('A1', 'Relatório de Cooperados', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $aba->setCellValueExplicit('A1', $configuracao['titulo'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
             $aba->getRowDimension(1)->setRowHeight(28);
             $aba->getStyle("A1:{$ultimaColuna}1")->applyFromArray([
                 'font' => [
@@ -518,7 +638,7 @@ class CooperadosRelatorios extends TPage
             $aba->mergeCells("A2:{$ultimaColuna}2");
             $aba->setCellValueExplicit(
                 'A2',
-                'Total de cooperados: ' . number_format($total, 0, ',', '.'),
+                $configuracao['rotulo_total'] . ': ' . number_format($total, 0, ',', '.'),
                 \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
             );
             $aba->getStyle("A2:{$ultimaColuna}2")->applyFromArray([
@@ -680,6 +800,8 @@ class CooperadosRelatorios extends TPage
                 'flg_declara_dep' => 20,
                 'numero_filhos' => 16,
                 'forma_integralizacao' => 38,
+                'tipo_contato' => 24,
+                'contato' => 38,
             ];
 
             foreach ($colunas as $indice => $coluna) {
@@ -687,7 +809,7 @@ class CooperadosRelatorios extends TPage
                 $chave = (string) ($coluna['chave'] ?? '');
                 $aba->getColumnDimension($letraColuna)->setWidth($larguras[$chave] ?? 18);
 
-                if (in_array($chave, ['nome', 'especialidades', 'cidades', 'forma_integralizacao'], true) && $registros) {
+                if (in_array($chave, ['nome', 'especialidades', 'cidades', 'forma_integralizacao', 'contato'], true) && $registros) {
                     $aba->getStyle("{$letraColuna}{$linhaDadosInicial}:{$letraColuna}{$ultimaLinhaDados}")
                         ->getAlignment()->setWrapText(true);
                 }
@@ -704,8 +826,8 @@ class CooperadosRelatorios extends TPage
             $aba->getPageMargins()->setTop(0.4)->setRight(0.3)->setBottom(0.4)->setLeft(0.3);
             $planilha->getProperties()
                 ->setCreator('Gestão de Rede')
-                ->setTitle('Relatório de Cooperados')
-                ->setSubject('Relatório cadastral de cooperados');
+                ->setTitle($configuracao['titulo'])
+                ->setSubject($configuracao['assunto']);
 
             $escritor = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($planilha);
             $escritor->save($caminhoArquivo);
@@ -1658,10 +1780,16 @@ class CooperadosRelatorios extends TPage
                             <span class="cooperados-relatorios-report-eyebrow">CONTATOS</span>
                             <h3>Contatos Cooperados</h3>
                             <p>Relação de contatos cadastrados para os cooperados.</p>
-                            <button type="button" class="cooperados-relatorios-btn is-report" data-cr-report="contatos">
-                                <i class="fas fa-eye" aria-hidden="true"></i>
-                                Visualizar relatório
-                            </button>
+                            <div class="cooperados-relatorios-report-actions">
+                                <button type="button" class="cooperados-relatorios-btn is-report" data-cr-report="telefones">
+                                    <i class="fas fa-phone" aria-hidden="true"></i>
+                                    Telefones
+                                </button>
+                                <button type="button" class="cooperados-relatorios-btn is-report" data-cr-report="emails">
+                                    <i class="fas fa-envelope" aria-hidden="true"></i>
+                                    E-mails
+                                </button>
+                            </div>
                         </div>
                     </article>
                 </div>
@@ -1677,10 +1805,10 @@ class CooperadosRelatorios extends TPage
                 <section class="cooperados-relatorios-report-dialog" role="dialog" aria-modal="true" aria-labelledby="crRelatorioCooperadosTitulo" tabindex="-1">
                     <header class="cooperados-relatorios-report-dialog-header">
                         <div class="cooperados-relatorios-report-dialog-title">
-                            <span class="cooperados-relatorios-report-dialog-icon" aria-hidden="true"><i class="fas fa-users"></i></span>
+                            <span class="cooperados-relatorios-report-dialog-icon" aria-hidden="true"><i class="fas fa-users" data-cr-report-icon></i></span>
                             <div>
-                                <span class="cooperados-relatorios-kicker">RELATÓRIO CADASTRAL</span>
-                                <h2 id="crRelatorioCooperadosTitulo">Relatório de Cooperados</h2>
+                                <span class="cooperados-relatorios-kicker" data-cr-report-kicker>RELATÓRIO CADASTRAL</span>
+                                <h2 id="crRelatorioCooperadosTitulo" data-cr-report-title>Relatório de Cooperados</h2>
                                 <p data-cr-report-total aria-live="polite">0 cooperados encontrados</p>
                             </div>
                         </div>
@@ -1703,7 +1831,7 @@ class CooperadosRelatorios extends TPage
 
                         <div class="cooperados-relatorios-report-empty" data-cr-report-empty hidden>
                             <i class="fas fa-search" aria-hidden="true"></i>
-                            <strong>Nenhum cooperado encontrado para os filtros selecionados.</strong>
+                            <strong data-cr-report-empty-text>Nenhum cooperado encontrado para os filtros selecionados.</strong>
                         </div>
 
                         <div class="cooperados-relatorios-report-table-wrap" data-cr-report-table-wrap hidden>

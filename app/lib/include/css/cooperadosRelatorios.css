@@ -929,6 +929,12 @@
     line-height: 1.5;
 }
 
+.cooperados-relatorios-report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .cooperados-relatorios-btn.is-report {
     min-height: 36px;
     padding: 8px 12px;
@@ -1235,11 +1241,16 @@ body.cooperados-relatorios-modal-open {
 
 .cooperados-relatorios-report-table [data-column="especialidades"],
 .cooperados-relatorios-report-table [data-column="cidades"],
-.cooperados-relatorios-report-table [data-column="forma_integralizacao"] {
+.cooperados-relatorios-report-table [data-column="forma_integralizacao"],
+.cooperados-relatorios-report-table [data-column="contato"] {
     min-width: 210px;
     max-width: 310px;
     line-height: 1.45;
     white-space: normal;
+}
+
+.cooperados-relatorios-report-table [data-column="tipo_contato"] {
+    min-width: 180px;
 }
 
 .cooperados-relatorios-report-empty {
